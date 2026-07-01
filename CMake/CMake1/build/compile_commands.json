@@ -1,0 +1,8 @@
+[
+{
+  "directory": "C:/Users/思麟/Desktop/Cpp11-plus-study-notes/CMake/CMake1/build",
+  "command": "D:\\GCC\\mingw64\\bin\\g++.exe   -g -o CMakeFiles\\main.dir\\main.cpp.obj -c C:\\Users\\思麟\\Desktop\\Cpp11-plus-study-notes\\CMake\\CMake1\\main.cpp",
+  "file": "C:/Users/思麟/Desktop/Cpp11-plus-study-notes/CMake/CMake1/main.cpp",
+  "output": "CMakeFiles/main.dir/main.cpp.obj"
+}
+]
