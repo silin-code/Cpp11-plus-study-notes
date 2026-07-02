@@ -1,0 +1,13 @@
+cmake_minimum_required(VERSION 3.18)
+project(TestMyMath 
+    LANGUAGES CXX
+)
+
+#设置 C++ 标准（解决 MSVC 14.38 STL 兼容性问题）
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
+
+#添加子模块，CMake会递归执行子目录下的CMakeLists.txt
+add_subdirectory(my_lib)
+add_subdirectory(app)

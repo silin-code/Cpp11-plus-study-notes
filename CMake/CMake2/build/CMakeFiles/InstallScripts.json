@@ -1,0 +1,9 @@
+{
+	"InstallScripts" : 
+	[
+		"C:/Users/\u601d\u9e9f/Desktop/Cpp11-plus-study-notes/CMake/CMake2/build/cmake_install.cmake",
+		"C:/Users/\u601d\u9e9f/Desktop/Cpp11-plus-study-notes/CMake/CMake2/build/my_lib/cmake_install.cmake",
+		"C:/Users/\u601d\u9e9f/Desktop/Cpp11-plus-study-notes/CMake/CMake2/build/app/cmake_install.cmake"
+	],
+	"Parallel" : false
+}
