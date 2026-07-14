@@ -1,4 +1,7 @@
+C:/Users/思麟/Desktop/Cpp11-plus-study-notes/CMake/CMake2/build/CMakeFiles/INSTALL.dir
 C:/Users/思麟/Desktop/Cpp11-plus-study-notes/CMake/CMake2/build/CMakeFiles/ALL_BUILD.dir
 C:/Users/思麟/Desktop/Cpp11-plus-study-notes/CMake/CMake2/build/CMakeFiles/ZERO_CHECK.dir
 C:/Users/思麟/Desktop/Cpp11-plus-study-notes/CMake/CMake2/build/my_lib/CMakeFiles/MyMath.dir
+C:/Users/思麟/Desktop/Cpp11-plus-study-notes/CMake/CMake2/build/my_lib/CMakeFiles/INSTALL.dir
 C:/Users/思麟/Desktop/Cpp11-plus-study-notes/CMake/CMake2/build/app/CMakeFiles/main.dir
+C:/Users/思麟/Desktop/Cpp11-plus-study-notes/CMake/CMake2/build/app/CMakeFiles/INSTALL.dir

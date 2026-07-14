@@ -1,2 +1,6 @@
 # CMake generation dependency list for this directory.
 C:/Users/思麟/Desktop/Cpp11-plus-study-notes/CMake/CMake2/my_lib/CMakeLists.txt
+C:/Users/思麟/Desktop/Cpp11-plus-study-notes/CMake/CMake2/my_lib/Config.cmake.in
+D:/CMake/share/cmake-4.4/Modules/CMakePackageConfigHelpers.cmake
+D:/CMake/share/cmake-4.4/Modules/GNUInstallDirs.cmake
+D:/CMake/share/cmake-4.4/Modules/WriteBasicConfigVersionFile.cmake
