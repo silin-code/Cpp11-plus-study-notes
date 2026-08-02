@@ -1,33 +1,164 @@
 ﻿#include <filesystem>
+#include <iostream>
 namespace fs = std::filesystem;
 
 int main() {
-    // 创建目录
-    fs::create_directory("mydir");           // 创建单个目录，父目录必须存在
-    fs::create_directories("a/b/c/d");       // 递归创建所有层级目录
+    fs::path p = "test.txt";
 
-    // 删除
-    fs::remove("file.txt");                  // 删除单个文件或空目录
-    fs::remove_all("mydir");                 // 递归删除目录及其所有内容
+    // 1. 完全替换：设置为 0644（所有者读写，其他只读）
+    fs::permissions(p,
+        fs::perms::owner_read | fs::perms::owner_write
+        | fs::perms::group_read | fs::perms::others_read);
 
-    // 拷贝
-    fs::copy("src.txt", "dst.txt");          // 拷贝文件
-    fs::copy("src_dir", "dst_dir",           // 递归拷贝目录
-        fs::copy_options::recursive);
+    // 2. 添加权限：给所有用户加上执行权限（等价于 chmod +x）
+    fs::permissions(p,
+        fs::perms::owner_exec | fs::perms::group_exec | fs::perms::others_exec,
+        fs::perm_options::add);
 
-    // 拷贝选项组合
-    fs::copy_options opts =
-        fs::copy_options::recursive |        // 递归拷贝子目录
-        fs::copy_options::overwrite_existing; // 覆盖已存在文件
+    // 3. 移除权限：移除其他用户的写权限（等价于 chmod o-w）
+    fs::permissions(p, fs::perms::others_write, fs::perm_options::remove);
 
-    // 重命名/移动
-    fs::rename("old_name.txt", "new_name.txt");
+    // 4. 不跟随符号链接，修改链接本身
+    fs::permissions("link.txt", fs::perms::owner_read,
+        fs::perm_options::replace | fs::perm_options::nofollow);
 
-    // 创建符号链接（需要对应平台权限）
-    fs::create_symlink("target.txt", "link.txt");
+    // 5. 错误码方式（推荐用于批量操作）
+    std::error_code ec;
+    fs::permissions("/etc/passwd", fs::perms::all, ec);
+    if (ec) {
+        std::cerr << "修改失败: " << ec.message() << '\n';
+    }
 
     return 0;
 }
+//#include<filesystem>
+//#include<iostream>
+//#include<iomanip>
+//namespace fs = std::filesystem;
+//
+////// 函数签名
+////void permissions(const path& p, perms prms);
+////void permissions(const path& p, perms prms, std::error_code& ec) noexcept;
+////void permissions(const path& p, perms prms, perm_options opts);
+////void permissions(const path& p, perms prms, perm_options opts, std::error_code& ec) noexcept;
+//
+//void printPermissions(const fs::path& p)
+//{
+//	fs::perms perm = fs::status(p).permissions();
+//
+//    // 八进制输出
+//    std::cout << "文件: " << p.filename() << '\n';
+//    std::cout << "  八进制权限: 0" << std::oct << std::setw(3) << std::setfill('0')
+//        << static_cast<unsigned>(perm & fs::perms::mask) << std::dec << '\n';
+//
+//    // 类似 ls -l 的 rwx 格式输出
+//    auto rwx = [&](fs::perms r, fs::perms w, fs::perms x) {
+//        std::cout << ((perm & r) != fs::perms::none ? 'r' : '-');
+//        std::cout << ((perm & w) != fs::perms::none ? 'w' : '-');
+//        std::cout << ((perm & x) != fs::perms::none ? 'x' : '-');
+//        };
+//
+//    std::cout << "  rwx格式: ";
+//    rwx(fs::perms::owner_read, fs::perms::owner_write, fs::perms::owner_exec);
+//    rwx(fs::perms::group_read, fs::perms::group_write, fs::perms::group_exec);
+//    rwx(fs::perms::others_read, fs::perms::others_write, fs::perms::others_exec);
+//    std::cout << '\n';
+//
+//    // 特殊权限位
+//    std::cout << "  setuid: " << ((perm & fs::perms::set_uid) != fs::perms::none) << '\n';
+//    std::cout << "  setgid: " << ((perm & fs::perms::set_gid) != fs::perms::none) << '\n';
+//    std::cout << "  sticky: " << ((perm & fs::perms::sticky_bit) != fs::perms::none) << '\n';
+//}
+//
+//int main() {
+//    printPermissions("test.txt");
+//    printPermissions("/usr/bin/passwd"); // 典型的setuid文件
+//    printPermissions("/tmp");            // 典型的sticky目录
+//    return 0;
+//}
+
+//#include <filesystem>
+//#include <iostream>
+//namespace fs = std::filesystem;
+//
+//void printFileType(const fs::path& p) {
+//    std::cout << "文件: " << p.filename() << '\n';
+//    std::cout << "  存在: " << fs::exists(p) << '\n';
+//
+//    if (fs::exists(p)) {
+//        std::cout << "  普通文件: " << fs::is_regular_file(p) << '\n';
+//        std::cout << "  目录: " << fs::is_directory(p) << '\n';
+//        std::cout << "  符号链接: " << fs::is_symlink(p) << '\n';
+//        std::cout << "  空: " << fs::is_empty(p) << '\n';
+//
+//        if (fs::is_regular_file(p)) {
+//            std::cout << "  文件大小: " << fs::file_size(p) << " bytes\n";
+//        }
+//    }
+//}
+//
+//int main() {
+//    printFileType("test.txt");
+//    printFileType("mydir");
+//    printFileType("link_to_test"); // 符号链接
+//    return 0;
+//}
+//fs::perms p = fs::perms::owner_read | fs::perms::owner_write; // 组合权限
+//p |= fs::perms::owner_exec;        // 添加执行权限
+//p &= ~fs::perms::owner_write;      // 移除写权限
+//
+//// 检查是否有某权限
+//bool can_read = (p & fs::perms::owner_read) != fs::perms::none;
+//bool can_write = (p & fs::perms::owner_write) != fs::perms::none;
+//fs::file_status status = fs::status("test.txt");
+//
+//// 文件类型
+//fs::file_type type = status.type();
+//// type 可以是:
+////   fs::file_type::none       - 状态无效
+////   fs::file_type::not_found  - 文件不存在
+////   fs::file_type::regular    - 普通文件
+////   fs::file_type::directory  - 目录
+////   fs::file_type::symlink    - 符号链接
+////   fs::file_type::block      - 块设备
+////   fs::file_type::character  - 字符设备
+////   fs::file_type::fifo       - 管道
+////   fs::file_type::socket     - 套接字
+////   fs::file_type::unknown    - 存在但类型未知
+//
+//// 权限
+//fs::perms perm = status.permissions();
+
+//#include <filesystem>
+//namespace fs = std::filesystem;
+//
+//int main() {
+//    // 创建目录
+//    fs::create_directory("mydir");           // 创建单个目录，父目录必须存在
+//    fs::create_directories("a/b/c/d");       // 递归创建所有层级目录
+//
+//    // 删除
+//    fs::remove("file.txt");                  // 删除单个文件或空目录
+//    fs::remove_all("mydir");                 // 递归删除目录及其所有内容
+//
+//    // 拷贝
+//    fs::copy("src.txt", "dst.txt");          // 拷贝文件
+//    fs::copy("src_dir", "dst_dir",           // 递归拷贝目录
+//        fs::copy_options::recursive);
+//
+//    // 拷贝选项组合
+//    fs::copy_options opts =
+//        fs::copy_options::recursive |        // 递归拷贝子目录
+//        fs::copy_options::overwrite_existing; // 覆盖已存在文件
+//
+//    // 重命名/移动
+//    fs::rename("old_name.txt", "new_name.txt");
+//
+//    // 创建符号链接（需要对应平台权限）
+//    fs::create_symlink("target.txt", "link.txt");
+//
+//    return 0;
+//}
 //#include <filesystem>
 //#include <iostream>
 //namespace fs = std::filesystem;
