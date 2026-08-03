@@ -1,36 +1,107 @@
 ﻿#include <filesystem>
-#include <iostream>
+#include <chrono>
+#include<iostream>
 namespace fs = std::filesystem;
 
 int main() {
     fs::path p = "test.txt";
 
-    // 1. 完全替换：设置为 0644（所有者读写，其他只读）
-    fs::permissions(p,
-        fs::perms::owner_read | fs::perms::owner_write
-        | fs::perms::group_read | fs::perms::others_read);
+    // 文件大小（仅普通文件有效）
+    uintmax_t size = fs::file_size(p);
 
-    // 2. 添加权限：给所有用户加上执行权限（等价于 chmod +x）
-    fs::permissions(p,
-        fs::perms::owner_exec | fs::perms::group_exec | fs::perms::others_exec,
-        fs::perm_options::add);
+    // 最后修改时间
+    fs::file_time_type ftime = fs::last_write_time(p);
+    // file_time_type 是 std::chrono::time_point 类型
 
-    // 3. 移除权限：移除其他用户的写权限（等价于 chmod o-w）
-    fs::permissions(p, fs::perms::others_write, fs::perm_options::remove);
+    // 修改最后修改时间
+    fs::last_write_time(p, fs::file_time_type::clock::now());
 
-    // 4. 不跟随符号链接，修改链接本身
-    fs::permissions("link.txt", fs::perms::owner_read,
-        fs::perm_options::replace | fs::perm_options::nofollow);
+    // 磁盘空间查询
+    fs::space_info si = fs::space("/");
+    std::cout << "总容量: " << si.capacity << " bytes\n";
+    std::cout << "空闲空间: " << si.free << " bytes\n";
+    std::cout << "可用空间: " << si.available << " bytes\n";
+    // free 是物理空闲空间，available 是当前用户可用的空间（可能更小）
 
-    // 5. 错误码方式（推荐用于批量操作）
-    std::error_code ec;
-    fs::permissions("/etc/passwd", fs::perms::all, ec);
-    if (ec) {
-        std::cerr << "修改失败: " << ec.message() << '\n';
-    }
+    // 可用空间考虑了磁盘配额、保留空间等因素
 
     return 0;
 }
+//#include<filesystem>
+//#include<iostream>
+//namespace fs = std::filesystem;
+//
+//int main()
+//{
+//	//创建目录
+//	fs::create_directory("mydir");//创建单个目录
+//	fs::create_directories("a/b/c");//创建多级目录
+//
+//	//删除
+//	fs::remove("file.txt");//删除单个文件或者空目录
+//	fs::remove_all("mydir");//递归删除目录的整个内容
+//	//remove_all返回删除的目录条数
+//
+//	//拷贝
+//	fs::copy("src.txt", "dst.txt");//拷贝文件
+//
+//	//拷贝目录
+//	fs::copy_options opts =
+//		fs::copy_options::recursive |//递归拷贝
+//		fs::copy_options::overwrite_existing |//覆盖已存在文件
+//		fs::copy_options::copy_symlinks;//拷贝符号链接本身，不跟随
+//	fs::copy("src_dir", "dst.txt", opts);
+//
+//	// copy_options 其他常用选项:
+//	//   skip_existing       - 跳过已存在的文件
+//	//   update_existing     - 只在源文件更新时覆盖
+//	//   directories::skip   - 跳过目录
+//	//   create_symlinks     - 创建符号链接代替拷贝
+//	//   hard_links          - 创建硬链接代替拷贝
+//
+//	// ===== 重命名/移动 =====
+//	fs::rename("old_name.txt", "new_name.txt");
+//	// rename 也可以用来移动文件到不同目录
+//
+//	// ===== 创建符号链接/硬链接 =====
+//	fs::create_symlink("target.txt", "link.txt");   // 符号链接
+//	fs::create_hard_link("target.txt", "link.txt"); // 硬链接
+//	return 0;
+//}
+
+//#include <filesystem>
+//#include <iostream>
+//namespace fs = std::filesystem;
+//
+//int main() {
+//    fs::path p = "test.txt";
+//
+//    // 1. 完全替换：设置为 0644（所有者读写，其他只读）
+//    fs::permissions(p,
+//        fs::perms::owner_read | fs::perms::owner_write
+//        | fs::perms::group_read | fs::perms::others_read);
+//
+//    // 2. 添加权限：给所有用户加上执行权限（等价于 chmod +x）
+//    fs::permissions(p,
+//        fs::perms::owner_exec | fs::perms::group_exec | fs::perms::others_exec,
+//        fs::perm_options::add);
+//
+//    // 3. 移除权限：移除其他用户的写权限（等价于 chmod o-w）
+//    fs::permissions(p, fs::perms::others_write, fs::perm_options::remove);
+//
+//    // 4. 不跟随符号链接，修改链接本身
+//    fs::permissions("link.txt", fs::perms::owner_read,
+//        fs::perm_options::replace | fs::perm_options::nofollow);
+//
+//    // 5. 错误码方式（推荐用于批量操作）
+//    std::error_code ec;
+//    fs::permissions("/etc/passwd", fs::perms::all, ec);
+//    if (ec) {
+//        std::cerr << "修改失败: " << ec.message() << '\n';
+//    }
+//
+//    return 0;
+//}
 //#include<filesystem>
 //#include<iostream>
 //#include<iomanip>
