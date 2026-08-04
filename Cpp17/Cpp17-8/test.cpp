@@ -1,32 +1,100 @@
 ﻿#include <filesystem>
-#include <chrono>
-#include<iostream>
+#include <iostream>
 namespace fs = std::filesystem;
 
 int main() {
-    fs::path p = "test.txt";
+    fs::path root = ".";
 
-    // 文件大小（仅普通文件有效）
-    uintmax_t size = fs::file_size(p);
+    // 递归遍历所有文件和子目录
+    for (const auto& entry : fs::recursive_directory_iterator(root)) {
+        // depth() 获取当前递归深度（从0开始）
+        std::cout << entry.path().relative_path() << '\n';
+    }
 
-    // 最后修改时间
-    fs::file_time_type ftime = fs::last_write_time(p);
-    // file_time_type 是 std::chrono::time_point 类型
+    // 高级用法：控制遍历深度
+    auto it = fs::recursive_directory_iterator(root);
+    for (; it != fs::recursive_directory_iterator(); ++it) {
+        if (it.depth() >= 2) {
+            it.disable_recursion_pending();
+            // 跳过当前条目的子目录，不进入递归
+        }
 
-    // 修改最后修改时间
-    fs::last_write_time(p, fs::file_time_type::clock::now());
+        if (it->is_directory() && it->path().filename() == ".git") {
+            it.pop(); // 直接弹出当前目录，跳过整个.git目录
+        }
+    }
 
-    // 磁盘空间查询
-    fs::space_info si = fs::space("/");
-    std::cout << "总容量: " << si.capacity << " bytes\n";
-    std::cout << "空闲空间: " << si.free << " bytes\n";
-    std::cout << "可用空间: " << si.available << " bytes\n";
-    // free 是物理空闲空间，available 是当前用户可用的空间（可能更小）
-
-    // 可用空间考虑了磁盘配额、保留空间等因素
+    // 递归遍历选项
+    // directory_options::skip_permission_denied - 跳过无权限的条目
+    // directory_options::follow_directory_symlink - 跟随目录符号链接（注意循环风险）
 
     return 0;
 }
+//#include<iostream>
+//#include<filesystem>
+//namespace fs = std::filesystem;
+//
+//int main()
+//{
+//	fs::path dir_path = ".";
+//	// 方式1：范围for遍历（最常用）
+//	for (const auto& entry : fs::directory_iterator(dir_path))
+//	{
+//		// entry 是 fs::directory_entry 类型
+//		std::cout << entry.path().filename();
+//
+//		// directory_entry 会缓存状态，减少系统调用
+//		if (entry.is_directory()) {
+//			std::cout << "  [目录]";
+//		}
+//		else if (entry.is_regular_file()) {
+//			std::cout << "  " << entry.file_size() << " bytes";
+//		}
+//		std::cout << '\n';
+//	}
+//	// 方式2：迭代器遍历
+//	auto it = fs::directory_iterator(dir_path);
+//	auto end = fs::directory_iterator(); // 默认构造就是end迭代器
+//	for (; it != end; ++it) {
+//		// 处理每个条目
+//	}
+//
+//	// 遍历选项
+//	// directory_options::none           - 默认行为
+//	// directory_options::skip_permission_denied - 跳过无权限访问的条目
+//	// directory_options::follow_directory_symlink - 跟随目录符号链接
+//
+//	return 0;
+//}
+//#include <filesystem>
+//#include <chrono>
+//#include<iostream>
+//namespace fs = std::filesystem;
+//
+//int main() {
+//    fs::path p = "test.txt";
+//
+//    // 文件大小（仅普通文件有效）
+//    uintmax_t size = fs::file_size(p);
+//
+//    // 最后修改时间
+//    fs::file_time_type ftime = fs::last_write_time(p);
+//    // file_time_type 是 std::chrono::time_point 类型
+//
+//    // 修改最后修改时间
+//    fs::last_write_time(p, fs::file_time_type::clock::now());
+//
+//    // 磁盘空间查询
+//    fs::space_info si = fs::space("/");
+//    std::cout << "总容量: " << si.capacity << " bytes\n";
+//    std::cout << "空闲空间: " << si.free << " bytes\n";
+//    std::cout << "可用空间: " << si.available << " bytes\n";
+//    // free 是物理空闲空间，available 是当前用户可用的空间（可能更小）
+//
+//    // 可用空间考虑了磁盘配额、保留空间等因素
+//
+//    return 0;
+//}
 //#include<filesystem>
 //#include<iostream>
 //namespace fs = std::filesystem;
