@@ -1,35 +1,70 @@
-﻿#include <filesystem>
-#include <iostream>
+﻿#include<filesystem>
+#include<system_error>
+#include<iostream>
 namespace fs = std::filesystem;
 
-int main() {
-    fs::path root = ".";
+int mian()
+{
+	// ===== 方式1：异常方式（默认） =====
+	// 操作失败抛出 fs::filesystem_error 异常
+	try {
+		fs::copy("nonexistent.txt", "dst.txt");
+	}
+	catch(const fs::filesystem_error& e)
+	{
+		std::cout << "错误信息: " << e.what() << '\n';
+		std::cout << "路径1: " << e.path1() << '\n';
+		std::cout << "路径2: " << e.path2() << '\n';
+		std::cout << "错误码: " << e.code() << '\n';
+		std::cout << "错误类别: " << e.code().category().name() << '\n';
+	}
 
-    // 递归遍历所有文件和子目录
-    for (const auto& entry : fs::recursive_directory_iterator(root)) {
-        // depth() 获取当前递归深度（从0开始）
-        std::cout << entry.path().relative_path() << '\n';
-    }
+	// ===== 方式2：错误码方式 =====
+	// 传入 std::error_code& 参数，失败不抛异常，错误码写入参数
+	std::error_code ec;
+	fs::copy("nonexistent.txt", "dst.txt", ec);
+	if (ec) {
+		std::cout << "错误码值: " << ec.value() << '\n';
+		std::cout << "错误信息: " << ec.message() << '\n';
+		std::cout << "错误类别: " << ec.category().name() << '\n';
+	}
 
-    // 高级用法：控制遍历深度
-    auto it = fs::recursive_directory_iterator(root);
-    for (; it != fs::recursive_directory_iterator(); ++it) {
-        if (it.depth() >= 2) {
-            it.disable_recursion_pending();
-            // 跳过当前条目的子目录，不进入递归
-        }
-
-        if (it->is_directory() && it->path().filename() == ".git") {
-            it.pop(); // 直接弹出当前目录，跳过整个.git目录
-        }
-    }
-
-    // 递归遍历选项
-    // directory_options::skip_permission_denied - 跳过无权限的条目
-    // directory_options::follow_directory_symlink - 跟随目录符号链接（注意循环风险）
-
-    return 0;
+	// 无错误时 ec.value() == 0，ec 转换为 bool 为 false
+	return 0;
 }
+
+//#include <filesystem>
+//#include <iostream>
+//namespace fs = std::filesystem;
+//
+//int main() {
+//    fs::path root = ".";
+//
+//    // 递归遍历所有文件和子目录
+//    for (const auto& entry : fs::recursive_directory_iterator(root)) {
+//        // depth() 获取当前递归深度（从0开始）
+//        std::cout << entry.path().relative_path() << '\n';
+//    }
+//
+//    // 高级用法：控制遍历深度
+//    auto it = fs::recursive_directory_iterator(root);
+//    for (; it != fs::recursive_directory_iterator(); ++it) {
+//        if (it.depth() >= 2) {
+//            it.disable_recursion_pending();
+//            // 跳过当前条目的子目录，不进入递归
+//        }
+//
+//        if (it->is_directory() && it->path().filename() == ".git") {
+//            it.pop(); // 直接弹出当前目录，跳过整个.git目录
+//        }
+//    }
+//
+//    // 递归遍历选项
+//    // directory_options::skip_permission_denied - 跳过无权限的条目
+//    // directory_options::follow_directory_symlink - 跟随目录符号链接（注意循环风险）
+//
+//    return 0;
+//}
 //#include<iostream>
 //#include<filesystem>
 //namespace fs = std::filesystem;
