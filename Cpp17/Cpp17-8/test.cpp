@@ -1,37 +1,340 @@
-﻿#include<filesystem>
-#include<system_error>
-#include<iostream>
-namespace fs = std::filesystem;
+﻿//#include <vector>
+//#include <algorithm>
+//#include <execution>
+//#include <string>
+//
+//struct LogEntry {
+//    std::string message;
+//    int level; // 0:debug, 1:info, 2:warn, 3:error
+//    uint64_t timestamp;
+//};
+//
+//// 并行过滤错误日志
+//std::vector<LogEntry> filterErrors(const std::vector<LogEntry>& logs) {
+//    std::vector<LogEntry> errors;
+//    std::copy_if(std::execution::par,
+//        logs.begin(), logs.end(),
+//        std::back_inserter(errors),
+//        [](const LogEntry& e) { return e.level >= 3; });
+//    return errors;
+//}
+//
+//// 并行统计各等级日志数量
+//std::vector<size_t> countByLevel(const std::vector<LogEntry>& logs) {
+//    std::vector<size_t> counts(4, 0);
+//    std::for_each(std::execution::par, logs.begin(), logs.end(),
+//        [&](const LogEntry& e) {
+//            // 注意：这里有数据竞争！实际使用需要原子操作或分块统计
+//            // counts[e.level]++; 
+//        });
+//    // 正确做法：用 transform_reduce 或者分块统计
+//    return counts;
+//}
 
-int mian()
-{
-	// ===== 方式1：异常方式（默认） =====
-	// 操作失败抛出 fs::filesystem_error 异常
-	try {
-		fs::copy("nonexistent.txt", "dst.txt");
-	}
-	catch(const fs::filesystem_error& e)
-	{
-		std::cout << "错误信息: " << e.what() << '\n';
-		std::cout << "路径1: " << e.path1() << '\n';
-		std::cout << "路径2: " << e.path2() << '\n';
-		std::cout << "错误码: " << e.code() << '\n';
-		std::cout << "错误类别: " << e.code().category().name() << '\n';
-	}
+//#include <filesystem>
+//#include <iostream>
+//namespace fs = std::filesystem;
+//
+//uintmax_t calculateDirectorySize(const fs::path& dir) {
+//    uintmax_t total_size = 0;
+//    uintmax_t file_count = 0;
+//    uintmax_t dir_count = 0;
+//
+//    std::error_code ec;
+//    for (const auto& entry : fs::recursive_directory_iterator(
+//        dir, fs::directory_options::skip_permission_denied, ec)) {
+//        if (entry.is_regular_file()) {
+//            total_size += entry.file_size();
+//            file_count++;
+//        }
+//        else if (entry.is_directory()) {
+//            dir_count++;
+//        }
+//    }
+//
+//    std::cout << "文件数: " << file_count << '\n';
+//    std::cout << "目录数: " << dir_count << '\n';
+//    std::cout << "总大小: " << total_size << " bytes ("
+//        << total_size / 1024 / 1024 << " MB)\n";
+//
+//    return total_size;
+//}
 
-	// ===== 方式2：错误码方式 =====
-	// 传入 std::error_code& 参数，失败不抛异常，错误码写入参数
-	std::error_code ec;
-	fs::copy("nonexistent.txt", "dst.txt", ec);
-	if (ec) {
-		std::cout << "错误码值: " << ec.value() << '\n';
-		std::cout << "错误信息: " << ec.message() << '\n';
-		std::cout << "错误类别: " << ec.category().name() << '\n';
-	}
+//#include <iostream>
+//#include <vector>
+//#include <algorithm>
+//#include <execution>
+//#include <chrono>
+//#include <random>
+//#include <numeric>
+//
+//template<typename Func>
+//double benchmark(Func&& func, int iterations = 5) {
+//    double total = 0;
+//    for (int i = 0; i < iterations; ++i) {
+//        auto start = std::chrono::high_resolution_clock::now();
+//        func();
+//        auto end = std::chrono::high_resolution_clock::now();
+//        total += std::chrono::duration<double, std::milli>(end - start).count();
+//    }
+//    return total / iterations;
+//}
+//
+//int main() {
+//    const int N = 10'000'000;
+//    std::vector<int> v(N);
+//    std::mt19937 gen(42);
+//    std::generate(v.begin(), v.end(), gen);
+//
+//    std::cout << "数据量: " << N << " 个int\n";
+//    std::cout << "==============================\n";
+//
+//    // ===== 排序性能对比 =====
+//    auto v1 = v;
+//    double t_sort_seq = benchmark([&]() {
+//        auto tmp = v1;
+//        std::sort(tmp.begin(), tmp.end());
+//        });
+//
+//    double t_sort_par = benchmark([&]() {
+//        auto tmp = v1;
+//        std::sort(std::execution::par, tmp.begin(), tmp.end());
+//        });
+//
+//    std::cout << "排序 - 顺序: " << t_sort_seq << "ms\n";
+//    std::cout << "排序 - 并行: " << t_sort_par << "ms\n";
+//    std::cout << "加速比: " << t_sort_seq / t_sort_par << "x\n\n";
+//
+//    // ===== 求和性能对比 =====
+//    double t_sum_seq = benchmark([&]() {
+//        volatile long long sum = std::accumulate(v.begin(), v.end(), 0LL);
+//        });
+//
+//    double t_sum_par = benchmark([&]() {
+//        volatile long long sum = std::reduce(std::execution::par, v.begin(), v.end(), 0LL);
+//        });
+//
+//    std::cout << "求和 - 顺序: " << t_sum_seq << "ms\n";
+//    std::cout << "求和 - 并行: " << t_sum_par << "ms\n";
+//    std::cout << "加速比: " << t_sum_seq / t_sum_par << "x\n\n";
+//
+//    // ===== 变换性能对比 =====
+//    std::vector<int> output(N);
+//    double t_trans_seq = benchmark([&]() {
+//        std::transform(v.begin(), v.end(), output.begin(),
+//            [](int x) { return x * x + 2 * x + 1; });
+//        });
+//
+//    double t_trans_par = benchmark([&]() {
+//        std::transform(std::execution::par, v.begin(), v.end(), output.begin(),
+//            [](int x) { return x * x + 2 * x + 1; });
+//        });
+//
+//    std::cout << "变换 - 顺序: " << t_trans_seq << "ms\n";
+//    std::cout << "变换 - 并行: " << t_trans_par << "ms\n";
+//    std::cout << "加速比: " << t_trans_seq / t_trans_par << "x\n";
+//
+//    return 0;
+//}
 
-	// 无错误时 ec.value() == 0，ec 转换为 bool 为 false
-	return 0;
-}
+//#include <vector>
+//#include <algorithm>
+//#include <execution>
+//
+//int main() {
+//    std::vector<int> v(1000000);
+//
+//    // remove/remove_if：移除满足条件的元素
+//    auto new_end = std::remove_if(std::execution::par,
+//        v.begin(), v.end(),
+//        [](int x) { return x < 0; });
+//    v.erase(new_end, v.end());
+//
+//    // unique：去重（需要先排序）
+//    std::sort(std::execution::par, v.begin(), v.end());
+//    auto last = std::unique(std::execution::par, v.begin(), v.end());
+//    v.erase(last, v.end());
+//
+//    // partition：分区
+//    std::partition(std::execution::par, v.begin(), v.end(),
+//        [](int x) { return x % 2 == 0; });
+//
+//    return 0;
+//}
+
+//#include <vector>
+//#include <algorithm>
+//#include <execution>
+//
+//int main() {
+//    std::vector<int> input(1000000);
+//    std::vector<int> output(1000000);
+//
+//    // ===== 变换算法 =====
+//    std::transform(std::execution::par,
+//        input.begin(), input.end(),
+//        output.begin(),
+//        [](int x) { return x * x; });
+//
+//    // 二元变换
+//    std::vector<int> a(1000000), b(1000000), c(1000000);
+//    std::transform(std::execution::par,
+//        a.begin(), a.end(), b.begin(), c.begin(),
+//        [](int x, int y) { return x + y; });
+//
+//    // ===== 遍历算法 =====
+//    std::for_each(std::execution::par, input.begin(), input.end(),
+//        [](int& x) { x *= 2; });
+//
+//    // for_each_n：遍历前n个元素
+//    std::for_each_n(std::execution::par, input.begin(), 1000,
+//        [](int& x) { x += 1; });
+//
+//    // ===== 复制与填充 =====
+//    std::copy(std::execution::par, input.begin(), input.end(), output.begin());
+//    std::fill(std::execution::par, output.begin(), output.end(), 0);
+//    std::generate(std::execution::par, output.begin(), output.end(), std::rand);
+//
+//    return 0;
+//}
+
+//#include <vector>
+//#include <numeric>
+//#include <execution>
+//
+//int main() {
+//    std::vector<double> v(1000000, 1.0);
+//
+//    // ===== 归约算法 =====
+//    // reduce：并行版的 accumulate，不保证累加顺序
+//    double sum = std::reduce(std::execution::par, v.begin(), v.end());
+//    // 注意：浮点数求和顺序不同结果可能有微小差异！
+//
+//    // 带初始值的 reduce
+//    double sum2 = std::reduce(std::execution::par, v.begin(), v.end(), 0.0);
+//
+//    // transform_reduce：变换+归约组合
+//    double dot_product = std::transform_reduce(
+//        std::execution::par,
+//        v.begin(), v.end(),  // 第一个序列
+//        v.begin(),           // 第二个序列
+//        0.0                  // 初始值
+//    );
+//
+//    // 自定义操作的 transform_reduce
+//    auto sum_of_squares = std::transform_reduce(
+//        std::execution::par,
+//        v.begin(), v.end(),
+//        0.0,
+//        std::plus<>(),                    // 归约操作：加法
+//        [](double x) { return x * x; }    // 变换操作：平方
+//    );
+//
+//    // ===== 前缀和（扫描算法） =====
+//    std::vector<double> result(v.size());
+//
+//    // inclusive_scan：包含当前元素的前缀和
+//    std::inclusive_scan(std::execution::par,
+//        v.begin(), v.end(),
+//        result.begin());
+//
+//    // exclusive_scan：不包含当前元素的前缀和
+//    std::exclusive_scan(std::execution::par,
+//        v.begin(), v.end(),
+//        result.begin(),
+//        0.0); // 初始值
+//
+//    return 0;
+//}
+
+//#include <vector>
+//#include <algorithm>
+//#include <execution>
+//#include <numeric>
+//
+//int main() {
+//    std::vector<int> v(1000000);
+//
+//    // ===== 排序算法 =====
+//    std::sort(std::execution::par, v.begin(), v.end());
+//    std::stable_sort(std::execution::par, v.begin(), v.end());
+//    std::partial_sort(std::execution::par, v.begin(), v.begin() + 100, v.end());
+//    std::nth_element(std::execution::par, v.begin(), v.begin() + 500, v.end());
+//
+//    // ===== 查找算法 =====
+//    auto it = std::find(std::execution::par, v.begin(), v.end(), 42);
+//    auto it2 = std::find_if(std::execution::par, v.begin(), v.end(),
+//        [](int x) { return x > 100; });
+//
+//    auto count = std::count(std::execution::par, v.begin(), v.end(), 42);
+//    auto count2 = std::count_if(std::execution::par, v.begin(), v.end(),
+//        [](int x) { return x % 2 == 0; });
+//
+//    bool all_pos = std::all_of(std::execution::par, v.begin(), v.end(),
+//        [](int x) { return x >= 0; });
+//    bool any_neg = std::any_of(std::execution::par, v.begin(), v.end(),
+//        [](int x) { return x < 0; });
+//    bool none_zero = std::none_of(std::execution::par, v.begin(), v.end(),
+//        [](int x) { return x == 0; });
+//
+//    // ===== 二分查找（注意：要求已排序） =====
+//    // 二分查找本身是O(log n)，并行收益不大，通常不需要并行
+//    bool found = std::binary_search(v.begin(), v.end(), 42);
+//
+//    return 0;
+//}
+//#include <vector>
+//#include <algorithm>
+//#include <execution>
+//
+//int main() {
+//    std::vector<int> v(1000000);
+//
+//    // 传统顺序排序（和C++14完全一样）
+//    std::sort(v.begin(), v.end());
+//
+//    // C++17 并行排序
+//    std::sort(std::execution::par, v.begin(), v.end());
+//
+//    // 并行+向量化排序（性能最高）
+//    std::sort(std::execution::par_unseq, v.begin(), v.end());
+//
+//    return 0;
+//}
+//#include<filesystem>
+//#include<system_error>
+//#include<iostream>
+//namespace fs = std::filesystem;
+//
+//int mian()
+//{
+//	// ===== 方式1：异常方式（默认） =====
+//	// 操作失败抛出 fs::filesystem_error 异常
+//	try {
+//		fs::copy("nonexistent.txt", "dst.txt");
+//	}
+//	catch(const fs::filesystem_error& e)
+//	{
+//		std::cout << "错误信息: " << e.what() << '\n';
+//		std::cout << "路径1: " << e.path1() << '\n';
+//		std::cout << "路径2: " << e.path2() << '\n';
+//		std::cout << "错误码: " << e.code() << '\n';
+//		std::cout << "错误类别: " << e.code().category().name() << '\n';
+//	}
+//
+//	// ===== 方式2：错误码方式 =====
+//	// 传入 std::error_code& 参数，失败不抛异常，错误码写入参数
+//	std::error_code ec;
+//	fs::copy("nonexistent.txt", "dst.txt", ec);
+//	if (ec) {
+//		std::cout << "错误码值: " << ec.value() << '\n';
+//		std::cout << "错误信息: " << ec.message() << '\n';
+//		std::cout << "错误类别: " << ec.category().name() << '\n';
+//	}
+//
+//	// 无错误时 ec.value() == 0，ec 转换为 bool 为 false
+//	return 0;
+//}
 
 //#include <filesystem>
 //#include <iostream>
