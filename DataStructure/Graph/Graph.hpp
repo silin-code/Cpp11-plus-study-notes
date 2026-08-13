@@ -136,21 +136,65 @@ namespace LinkTable
 	public:
 		Graph(const V* vertexs, size_t n)
 		{
-
+			_vertexs.reserve(n);
+			for (size_t i = 0;i < n;i++)
+			{
+				_vertexs.push_back(vertexs[i]);
+				_vIndexMap[vertexs[i]] = i;
+			}
+			_linkTable.resize(n, nullptr);
 		}
 
 		size_t GetVertexIndex(const V& v)
 		{
-
+			auto ret = _vIndexMap.find(v);
+			if (ret != _vIndexMap.end())
+			{
+				return ret->second;
+			}
+			else
+			{
+				throw invalid_argument("Not exist");
+				return -1;
+			}
 		}
 
-		void AddEdge(const V& src,const V& dst,const W& w)
+		void AddEdge(const V& src, const V& dst, const W& w)
 		{
+			size_t srci = GetVertexIndex(src);
+			size_t dsti = GetVertexIndex(dst);
 
+			//0 1
+			Edge* sd_edge = new Edge(w);
+			sd_edge->_srcIndex = srci;
+			sd_edge->_dstIndex = dsti;
+
+			sd_edge->_next = _linkTable[srci];
+			_linkTable[srci] = sd_edge;
+
+			//1 0
+			//无向图
+			if (Direction == false)
+			{
+				Edge* ds_edge = new Edge(w);
+				ds_edge->_dstIndex = dsti;
+				ds_edge->_srcIndex = srci;
+				ds_edge->_next = _linkTable[dsti];
+				_linkTable[dsti] = ds_edge;
+			}
 		}
 	private:
-		map<string, int> _vIndexMap;
-		vector<V> _vertex;//顶点集合
+		map<V, int> _vIndexMap;
+		vector<V> _vertexs;//顶点集合
 		vector<Edge*> _linkTable;//边的集合的邻接表
 	};
+
+	void TestGraph()
+	{
+		string a[] = { "张三", "李四", "王五", "赵六" };
+		Graph<string, int> g1(a, 4);
+		g1.AddEdge("张三", "李四", 100);
+		g1.AddEdge("张三", "王五", 200);
+		g1.AddEdge("王五", "赵六", 30);
+	}
 }
