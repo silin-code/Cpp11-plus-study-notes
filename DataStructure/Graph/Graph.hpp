@@ -183,6 +183,29 @@ namespace LinkTable
 				_linkTable[dsti] = ds_edge;
 			}
 		}
+
+		void Print()
+		{
+			//顶点
+			for (size_t i = 0;i < _vertexs.size();i++)
+			{
+				cout << "[" << i << "]" << "->" << _vertexs[i] << endl;
+			}
+			cout << endl;
+
+			for (size_t i = 0;i < _linkTable.size();i++)
+			{
+				cout << _vertexs[i] << "[" << i << "]->";
+				Edge* cur = _linkTable[i];
+				while (cur)
+				{
+					cout << _vertexs[cur->_dstIndex] << "[" << cur->_dstIndex << "]" << cur->_w << "->";
+					cur = cur->_next;
+				}
+				cout << "nullptr" << endl;
+			}
+		}
+
 	private:
 		map<V, int> _vIndexMap;
 		vector<V> _vertexs;//顶点集合
@@ -196,5 +219,6 @@ namespace LinkTable
 		g1.AddEdge("张三", "李四", 100);
 		g1.AddEdge("张三", "王五", 200);
 		g1.AddEdge("王五", "赵六", 30);
+		g1.Print();
 	}
 }
