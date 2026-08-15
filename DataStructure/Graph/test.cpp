@@ -2,6 +2,7 @@
 
 int main()
 {
-	LinkTable::TestGraph();
+	matrix::TestGraph();
+	//LinkTable::TestGraph();
 	return 0;
 }

@@ -4,6 +4,7 @@
 #include <map>
 #include <climits>
 #include <stdexcept> // invalid_argument
+#include <queue>//BFS遍历
 using namespace std;
 
 // 邻接矩阵实现的带权图
@@ -89,6 +90,35 @@ namespace matrix
 				cout << endl;
 			}
 		}
+
+		void BFS(const V& src)
+		{
+			size_t srci = GetVertexIndex(src);
+
+			//队列和标记数组
+			queue<size_t> q;
+			vector<bool> visited(_vertexs.size(), false);
+
+			q.push(srci);
+			visited[srci] = true;
+			int n = _vertexs.size();
+			while (q.size())
+			{
+				int front = q.front();
+				q.pop();
+				cout << "[" << front << "]:" << _vertexs[front] << endl;
+				//把front顶点的邻接点入队
+				for (size_t i = 0;i < n;i++)
+				{
+					if (_matrix[front][i] == max_w && visited[i] == false)
+					{
+						q.push(i);
+						visited[i] = true;
+					}
+				}
+			}
+			cout << endl;
+		}
 	private:
 		vector<V> _vertexs;          // 顶点集合
 		map<V, size_t> _indexMap;    // 顶点值 -> 下标的映射
@@ -107,7 +137,8 @@ namespace matrix
 		g.AddEdge('2', '1', 5);
 		g.AddEdge('2', '0', 3);
 		g.AddEdge('3', '2', 6);
-		g.Print();
+		//g.Print();
+		g.BFS('0');
 	}
 }
 
