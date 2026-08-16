@@ -5,6 +5,8 @@
 #include <climits>
 #include <stdexcept> // invalid_argument
 #include <queue>//BFS遍历
+
+#include "UnionFindSet.hpp"//并查集+最小生成树
 using namespace std;
 
 // 邻接矩阵实现的带权图
@@ -13,6 +15,7 @@ namespace matrix
 	// V: 顶点类型  W: 权值类型  max_w: 权值最大值(表示无边)  Direction: true=有向图, false=无向图
 	template<class V, class W, W max_w = INT_MAX, bool Direction = true>
 	class Graph {
+		using Self = Graph<V, W, max_w, Direction>;//最小生成树的self
 	public:
 		// 构造函数：用顶点数组初始化图
 		// a: 顶点数组  n: 顶点个数
@@ -47,13 +50,9 @@ namespace matrix
 			}
 		}
 
-		// 添加边
-		// src: 起点  dst: 终点  w: 权值
-		void AddEdge(const V& src, const V& dst, const W& w)
+		//以下标添加
+		void _AddEdge(size_t srci, size_t dsti, const W& w)
 		{
-			size_t srci = GetVertexIndex(src); // 起点下标
-			size_t dsti = GetVertexIndex(dst); // 终点下标
-
 			_matrix[srci][dsti] = w;           // 有向图：只加一条边
 
 			// 无向图：对称位置也要加
@@ -61,6 +60,15 @@ namespace matrix
 			{
 				_matrix[dsti][srci] = w;
 			}
+		}
+
+		// 添加边
+		// src: 起点  dst: 终点  w: 权值
+		void AddEdge(const V& src, const V& dst, const W& w)
+		{
+			size_t srci = GetVertexIndex(src); // 起点下标
+			size_t dsti = GetVertexIndex(dst); // 终点下标
+			_AddEdge(srci, dsti, w);
 		}
 
 		// 打印图结构
@@ -119,6 +127,93 @@ namespace matrix
 			}
 			cout << endl;
 		}
+
+		void _DFS(size_t srci, vector<bool>& visited)
+		{
+			cout << "[" << srci << "]:" << _vertexs[srci] << endl;
+			visited[srci] = true;
+
+			//找srci相邻的点,而且没有访问过
+			for (size_t i = 0;i < _vertexs.size();i++)
+			{
+				if (_matrix[srci][i] != max_w && visited[i] == false)
+				{
+					_DFS(i, visited);
+				}
+			}
+		}
+
+		void DFS(const V& src)
+		{
+			size_t srci = GetVertexIndex(src);
+			vector<bool> visited(_vertexs.size(), false);
+			_DFS(srci, visited);
+		}
+
+
+		struct Edge
+		{
+			size_t _srci;
+			size_t _dsti;
+			W _w;
+			Edge(size_t srci, size_t dsti,const W& w) :
+				_srci(srci),
+				_dsti(dsti),
+				_w(w)
+			{
+			}
+
+			bool operator>(const Edge& e) const
+			{
+				return _w > (e._w);
+			}
+		};
+
+
+		//最小生成树算法
+		W Kruskal(Self& minTree)
+		{
+			priority_queue<Edge, vector<Edge>, greater<Edge>> minque;
+			size_t n = _vertexs.size();
+			for (size_t i = 0;i < n;i++)
+			{
+				for (size_t j = 0;j < n;j++)
+				{
+					if (_matrix[i][j] != max_w)
+					{
+						minque.push(Edge(i, j, _matrix[i][j]));
+					}
+				}
+			}
+
+			//选出一条边
+			size_t size = 0;
+			W total = W();
+			UnionFindSet ufs(n);
+			while (!minque.empty())
+			{
+				Edge min = minque.top();
+				minque.pop();
+
+				if (!ufs.IsInSet(min._srci, min._dsti))
+				{
+					minTree._AddEdge(min._dsti, min._srci,min._w);
+					ufs.Union(min._dsti, min._srci);
+					++size;
+					total += min._w;
+				}
+			}
+
+			if (size == n - 1)
+			{
+				return total;
+			}
+			else
+			{
+				return W();
+			}
+		}
+
 	private:
 		vector<V> _vertexs;          // 顶点集合
 		map<V, size_t> _indexMap;    // 顶点值 -> 下标的映射
@@ -138,7 +233,8 @@ namespace matrix
 		g.AddEdge('2', '0', 3);
 		g.AddEdge('3', '2', 6);
 		//g.Print();
-		g.BFS('0');
+		//g.BFS('0');
+		g.DFS('0');
 	}
 }
 
