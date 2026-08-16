@@ -43,7 +43,7 @@ namespace matrix
 			}
 			else
 			{
-				throw invalid_argument("vertex now exist"); // 抛出异常
+				throw invalid_argument("vertex not exist"); // 抛出异常
 			}
 		}
 
@@ -104,13 +104,13 @@ namespace matrix
 			int n = _vertexs.size();
 			while (q.size())
 			{
-				int front = q.front();
+				size_t front = q.front();
 				q.pop();
 				cout << "[" << front << "]:" << _vertexs[front] << endl;
 				//把front顶点的邻接点入队
 				for (size_t i = 0;i < n;i++)
 				{
-					if (_matrix[front][i] == max_w && visited[i] == false)
+					if (_matrix[front][i] != max_w && visited[i] == false)
 					{
 						q.push(i);
 						visited[i] = true;
