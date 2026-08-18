@@ -116,7 +116,7 @@ namespace matrix
 				q.pop();
 				cout << "[" << front << "]:" << _vertexs[front] << endl;
 				//把front顶点的邻接点入队
-				for (size_t i = 0;i < n;i++)
+				for (size_t i = 0; i < n; i++)
 				{
 					if (_matrix[front][i] != max_w && visited[i] == false)
 					{
@@ -134,7 +134,7 @@ namespace matrix
 			visited[srci] = true;
 
 			//找srci相邻的点,而且没有访问过
-			for (size_t i = 0;i < _vertexs.size();i++)
+			for (size_t i = 0; i < _vertexs.size(); i++)
 			{
 				if (_matrix[srci][i] != max_w && visited[i] == false)
 				{
@@ -156,12 +156,11 @@ namespace matrix
 			size_t _srci;
 			size_t _dsti;
 			W _w;
-			Edge(size_t srci, size_t dsti,const W& w) :
+			Edge(size_t srci, size_t dsti, const W& w) :
 				_srci(srci),
 				_dsti(dsti),
 				_w(w)
-			{
-			}
+			{}
 
 			bool operator>(const Edge& e) const
 			{
@@ -169,15 +168,14 @@ namespace matrix
 			}
 		};
 
-
 		//最小生成树算法
 		W Kruskal(Self& minTree)
 		{
 			priority_queue<Edge, vector<Edge>, greater<Edge>> minque;
 			size_t n = _vertexs.size();
-			for (size_t i = 0;i < n;i++)
+			for (size_t i = 0; i < n; i++)
 			{
-				for (size_t j = 0;j < n;j++)
+				for (size_t j = 0; j < n; j++)
 				{
 					if (_matrix[i][j] != max_w)
 					{
@@ -197,7 +195,7 @@ namespace matrix
 
 				if (!ufs.IsInSet(min._srci, min._dsti))
 				{
-					minTree._AddEdge(min._dsti, min._srci,min._w);
+					minTree._AddEdge(min._dsti, min._srci, min._w);
 					ufs.Union(min._dsti, min._srci);
 					++size;
 					total += min._w;
@@ -214,6 +212,61 @@ namespace matrix
 			}
 		}
 
+		W Prim(Self& minTree, const V& src)
+		{
+			size_t srci = GetVertexIndex(src);
+			size_t n = _vertexs.size();
+
+			vector<bool> inX(n, false);
+			inX[srci] = true;
+
+			//从X到Y集合里面连接的边选出最小的
+			priority_queue<Edge, vector<Edge>, greater<Edge>> minq;
+			//先把seci连接的边添加到队列
+			for (size_t i = 0; i < n; i++)
+			{
+				if (_matrix[srci][i] != max_w)
+				{
+					minq.push(Edge(srci, i, _matrix[srci][i]));
+				}
+			}
+
+			size_t edgecount = 0;
+			W total = W();
+
+			while (!minq.empty())
+			{
+				Edge min = minq.top();
+				minq.pop();
+
+				//目标点在MST中，直接跳过
+				if (inX[min._dsti]) continue;
+
+				//目标点不在，加入MST
+				minTree._AddEdge(min._srci, min._dsti, min._w);
+				inX[min._dsti] = true;
+				total += min._w;
+				edgecount++;
+
+				if (edgecount == n - 1)
+				{
+					break;
+				}
+
+				//把新加入顶点的所有邻边入队
+				for (size_t i = 0; i < n; i++)
+				{
+					if (_matrix[min._dsti][i] != max_w && !inX[i])
+					{
+						minq.push(Edge(min._dsti, i, _matrix[min._dsti][i]));
+					}
+				}
+			}
+
+			//不联通返回W()
+			if (edgecount == n - 1)return total;
+			return W();
+		}
 	private:
 		vector<V> _vertexs;          // 顶点集合
 		map<V, size_t> _indexMap;    // 顶点值 -> 下标的映射
@@ -253,8 +306,7 @@ namespace LinkTable
 			_dstIndex(-1),
 			_w(w),
 			_next(nullptr)
-		{
-		}
+		{}
 	};
 
 	template<class V, class W, bool Direction = false>
@@ -264,7 +316,7 @@ namespace LinkTable
 		Graph(const V* vertexs, size_t n)
 		{
 			_vertexs.reserve(n);
-			for (size_t i = 0;i < n;i++)
+			for (size_t i = 0; i < n; i++)
 			{
 				_vertexs.push_back(vertexs[i]);
 				_vIndexMap[vertexs[i]] = i;
@@ -314,13 +366,13 @@ namespace LinkTable
 		void Print()
 		{
 			//顶点
-			for (size_t i = 0;i < _vertexs.size();i++)
+			for (size_t i = 0; i < _vertexs.size(); i++)
 			{
 				cout << "[" << i << "]" << "->" << _vertexs[i] << endl;
 			}
 			cout << endl;
 
-			for (size_t i = 0;i < _linkTable.size();i++)
+			for (size_t i = 0; i < _linkTable.size(); i++)
 			{
 				cout << _vertexs[i] << "[" << i << "]->";
 				Edge* cur = _linkTable[i];
