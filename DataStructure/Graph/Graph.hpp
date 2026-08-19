@@ -267,6 +267,11 @@ namespace matrix
 			if (edgecount == n - 1)return total;
 			return W();
 		}
+
+		void Dijkstra(const V& src, vector<W>& dist, vector<int>& parentPath)
+		{
+
+		}
 	private:
 		vector<V> _vertexs;          // 顶点集合
 		map<V, size_t> _indexMap;    // 顶点值 -> 下标的映射
