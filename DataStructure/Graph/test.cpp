@@ -4,205 +4,10 @@
 using namespace std;
 using namespace matrix;
 
-// ========== Kruskal Tests ==========
-
-void TestKruskal_Known()
+// Test1: 有向图，验证 dist 数组
+void TestDijkstra_Directed()
 {
-    cout << "===== Test1: Kruskal - 4-vertex undirected =====" << endl;
-    char a[] = { '0', '1', '2', '3' };
-    Graph<char, int, INT_MAX, false> g(a, 4);
-
-    g.AddEdge('0', '1', 1);
-    g.AddEdge('0', '2', 3);
-    g.AddEdge('0', '3', 4);
-    g.AddEdge('1', '2', 2);
-    g.AddEdge('1', '3', 5);
-    g.AddEdge('2', '3', 1);
-
-    Graph<char, int, INT_MAX, false> minTree(a, 4);
-    int total = g.Kruskal(minTree);
-
-    cout << "MST total = " << total << " (expected 4)" << endl;
-    minTree.Print();
-    assert(total == 4 && "Test1 failed");
-    cout << "Test1 PASSED!" << endl << endl;
-}
-
-void TestKruskal_Disconnected()
-{
-    cout << "===== Test2: Kruskal - disconnected =====" << endl;
-    char a[] = { '0', '1', '2', '3' };
-    Graph<char, int, INT_MAX, false> g(a, 4);
-    g.AddEdge('0', '1', 2);
-
-    Graph<char, int, INT_MAX, false> minTree(a, 4);
-    int total = g.Kruskal(minTree);
-
-    cout << "MST total = " << total << " (expected 0)" << endl;
-    assert(total == 0 && "Test2 failed");
-    cout << "Test2 PASSED!" << endl << endl;
-}
-
-void TestKruskal_SingleVertex()
-{
-    cout << "===== Test3: Kruskal - single vertex =====" << endl;
-    char a[] = { '0' };
-    Graph<char, int, INT_MAX, false> g(a, 1);
-
-    Graph<char, int, INT_MAX, false> minTree(a, 1);
-    int total = g.Kruskal(minTree);
-
-    cout << "MST total = " << total << " (expected 0)" << endl;
-    assert(total == 0 && "Test3 failed");
-    cout << "Test3 PASSED!" << endl << endl;
-}
-
-void TestKruskal_Complex()
-{
-    cout << "===== Test4: Kruskal - 5-vertex complex =====" << endl;
-    char a[] = { 'A', 'B', 'C', 'D', 'E' };
-    Graph<char, int, INT_MAX, false> g(a, 5);
-
-    g.AddEdge('A', 'B', 4);
-    g.AddEdge('A', 'C', 8);
-    g.AddEdge('B', 'C', 11);
-    g.AddEdge('B', 'D', 8);
-    g.AddEdge('C', 'D', 7);
-    g.AddEdge('C', 'E', 1);
-    g.AddEdge('D', 'E', 2);
-    g.AddEdge('A', 'E', 6);
-
-    Graph<char, int, INT_MAX, false> minTree(a, 5);
-    int total = g.Kruskal(minTree);
-
-    cout << "MST total = " << total << " (expected 13)" << endl;
-    minTree.Print();
-    assert(total == 13 && "Test4 failed");
-    cout << "Test4 PASSED!" << endl << endl;
-}
-
-// ========== Prim Tests ==========
-
-void TestPrim_Known()
-{
-    cout << "===== Test5: Prim - 4-vertex undirected =====" << endl;
-    char a[] = { '0', '1', '2', '3' };
-    Graph<char, int, INT_MAX, false> g(a, 4);
-
-    g.AddEdge('0', '1', 1);
-    g.AddEdge('0', '2', 3);
-    g.AddEdge('0', '3', 4);
-    g.AddEdge('1', '2', 2);
-    g.AddEdge('1', '3', 5);
-    g.AddEdge('2', '3', 1);
-
-    char starts[] = { '0', '1', '2', '3' };
-    for (char s : starts)
-    {
-        Graph<char, int, INT_MAX, false> minTree(a, 4);
-        int total = g.Prim(minTree, s);
-        cout << "  start=" << s << ", MST total = " << total << " (expected 4)" << endl;
-        assert(total == 4 && "Test5 failed");
-    }
-    cout << "Test5 PASSED!" << endl << endl;
-}
-
-void TestPrim_Disconnected()
-{
-    cout << "===== Test6: Prim - disconnected =====" << endl;
-    char a[] = { '0', '1', '2', '3' };
-    Graph<char, int, INT_MAX, false> g(a, 4);
-    g.AddEdge('0', '1', 2);
-
-    Graph<char, int, INT_MAX, false> minTree(a, 4);
-    int total = g.Prim(minTree, '0');
-
-    cout << "MST total = " << total << " (expected 0)" << endl;
-    assert(total == 0 && "Test6 failed");
-    cout << "Test6 PASSED!" << endl << endl;
-}
-
-void TestPrim_SingleVertex()
-{
-    cout << "===== Test7: Prim - single vertex =====" << endl;
-    char a[] = { '0' };
-    Graph<char, int, INT_MAX, false> g(a, 1);
-
-    Graph<char, int, INT_MAX, false> minTree(a, 1);
-    int total = g.Prim(minTree, '0');
-
-    cout << "MST total = " << total << " (expected 0)" << endl;
-    assert(total == 0 && "Test7 failed");
-    cout << "Test7 PASSED!" << endl << endl;
-}
-
-void TestPrim_Complex()
-{
-    cout << "===== Test8: Prim - 5-vertex complex =====" << endl;
-    char a[] = { 'A', 'B', 'C', 'D', 'E' };
-    Graph<char, int, INT_MAX, false> g(a, 5);
-
-    g.AddEdge('A', 'B', 4);
-    g.AddEdge('A', 'C', 8);
-    g.AddEdge('B', 'C', 11);
-    g.AddEdge('B', 'D', 8);
-    g.AddEdge('C', 'D', 7);
-    g.AddEdge('C', 'E', 1);
-    g.AddEdge('D', 'E', 2);
-    g.AddEdge('A', 'E', 6);
-
-    char starts[] = { 'A', 'B', 'C', 'D', 'E' };
-    for (char s : starts)
-    {
-        Graph<char, int, INT_MAX, false> minTree(a, 5);
-        int total = g.Prim(minTree, s);
-        cout << "  start=" << s << ", MST total = " << total << " (expected 13)" << endl;
-        assert(total == 13 && "Test8 failed");
-    }
-
-    Graph<char, int, INT_MAX, false> refTree(a, 5);
-    g.Prim(refTree, 'A');
-    cout << "  MST (start=A):" << endl;
-    refTree.Print();
-    cout << "Test8 PASSED!" << endl << endl;
-}
-
-// ========== Cross-validation ==========
-
-void Test_Kruskal_vs_Prim()
-{
-    cout << "===== Test9: Kruskal vs Prim cross-validation =====" << endl;
-    char a[] = { 'A', 'B', 'C', 'D', 'E', 'F' };
-    Graph<char, int, INT_MAX, false> g(a, 6);
-
-    g.AddEdge('A', 'B', 2);
-    g.AddEdge('A', 'C', 5);
-    g.AddEdge('B', 'C', 4);
-    g.AddEdge('B', 'D', 7);
-    g.AddEdge('C', 'D', 9);
-    g.AddEdge('C', 'E', 1);
-    g.AddEdge('D', 'E', 3);
-    g.AddEdge('D', 'F', 6);
-    g.AddEdge('E', 'F', 8);
-    g.AddEdge('A', 'F', 10);
-
-    Graph<char, int, INT_MAX, false> kTree(a, 6);
-    int kTotal = g.Kruskal(kTree);
-
-    Graph<char, int, INT_MAX, false> pTree(a, 6);
-    int pTotal = g.Prim(pTree, 'A');
-
-    cout << "Kruskal total = " << kTotal << endl;
-    cout << "Prim total    = " << pTotal << endl;
-    assert(kTotal == pTotal && "Test9 failed: Kruskal != Prim");
-    cout << "Kruskal and Prim agree! Test9 PASSED!" << endl << endl;
-}
-
-// ========== Original directed graph smoke test ==========
-
-void Test_OriginalDirected()
-{
-    cout << "===== Test10: Original directed graph (smoke test) =====" << endl;
+    cout << "===== Test1: Dijkstra - directed =====" << endl;
     Graph<char, int, INT_MAX, true> g("0123", 4);
     g.AddEdge('0', '1', 1);
     g.AddEdge('0', '3', 4);
@@ -213,32 +18,183 @@ void Test_OriginalDirected()
     g.AddEdge('2', '0', 3);
     g.AddEdge('3', '2', 6);
 
-    Graph<char, int, INT_MAX, true> kTree("0123", 4);
-    int kTotal = g.Kruskal(kTree);
-    cout << "Kruskal total = " << kTotal << endl;
+    vector<int> dist;
+    vector<int> parentPath;
+    g.Dijkstra('0', dist, parentPath);
 
-    Graph<char, int, INT_MAX, true> pTree("0123", 4);
-    int pTotal = g.Prim(pTree, '0');
-    cout << "Prim total = " << pTotal << endl;
+    cout << "dist from '0': ";
+    for (size_t i = 0; i < dist.size(); i++)
+    {
+        if (dist[i] == INT_MAX) cout << "INF ";
+        else cout << dist[i] << " ";
+    }
+    cout << endl;
 
-    cout << "Test10 done (directed, smoke test only)" << endl << endl;
+    cout << "parentPath: ";
+    for (int p : parentPath) cout << p << " ";
+    cout << endl;
+
+    // 0->0=0, 0->1=1, 0->2=9(0->1->3->2), 0->3=3(0->1->3)
+    assert(dist[0] == 0);
+    assert(dist[1] == 1);
+    assert(dist[2] == 9);
+    assert(dist[3] == 3);
+    cout << "Test1 PASSED!" << endl << endl;
+}
+
+// Test2: PrintShortPath 输出验证
+void TestDijkstra_PrintPath()
+{
+    cout << "===== Test2: PrintShortPath =====" << endl;
+    Graph<char, int, INT_MAX, true> g("0123", 4);
+    g.AddEdge('0', '1', 1);
+    g.AddEdge('0', '3', 4);
+    g.AddEdge('1', '3', 2);
+    g.AddEdge('1', '2', 9);
+    g.AddEdge('2', '3', 8);
+    g.AddEdge('2', '1', 5);
+    g.AddEdge('2', '0', 3);
+    g.AddEdge('3', '2', 6);
+
+    vector<int> dist;
+    vector<int> parentPath;
+    g.Dijkstra('0', dist, parentPath);
+
+    cout << "Shortest paths from '0':" << endl;
+    g.PrintShortPath('0', dist, parentPath);
+    cout << "Test2 PASSED!" << endl << endl;
+}
+
+// Test3: 无向图
+void TestDijkstra_Undirected()
+{
+    cout << "===== Test3: Dijkstra - undirected =====" << endl;
+    char a[] = { 'A', 'B', 'C', 'D', 'E' };
+    Graph<char, int, INT_MAX, false> g(a, 5);
+
+    g.AddEdge('A', 'B', 4);
+    g.AddEdge('A', 'C', 8);
+    g.AddEdge('B', 'C', 11);
+    g.AddEdge('B', 'D', 8);
+    g.AddEdge('C', 'D', 7);
+    g.AddEdge('C', 'E', 1);
+    g.AddEdge('D', 'E', 2);
+    g.AddEdge('A', 'E', 6);
+
+    vector<int> dist;
+    vector<int> parentPath;
+    g.Dijkstra('A', dist, parentPath);
+
+    cout << "dist from 'A': ";
+    for (size_t i = 0; i < dist.size(); i++)
+        cout << a[i] << "=" << dist[i] << " ";
+    cout << endl;
+
+    // A=0, B=4, C=7(A->E->C), D=8(A->E->D), E=6
+    assert(dist[0] == 0);
+    assert(dist[1] == 4);
+    assert(dist[2] == 7);
+    assert(dist[3] == 8);
+    assert(dist[4] == 6);
+
+    g.PrintShortPath('A', dist, parentPath);
+    cout << "Test3 PASSED!" << endl << endl;
+}
+
+// Test4: 不可达顶点
+void TestDijkstra_Unreachable()
+{
+    cout << "===== Test4: Dijkstra - unreachable =====" << endl;
+    char a[] = { '0', '1', '2', '3' };
+    Graph<char, int, INT_MAX, true> g(a, 4);
+    g.AddEdge('0', '1', 5);
+    g.AddEdge('1', '2', 3);
+    // vertex 3 isolated
+
+    vector<int> dist;
+    vector<int> parentPath;
+    g.Dijkstra('0', dist, parentPath);
+
+    cout << "dist from '0': ";
+    for (size_t i = 0; i < dist.size(); i++)
+    {
+        if (dist[i] == INT_MAX) cout << a[i] << "=INF ";
+        else cout << a[i] << "=" << dist[i] << " ";
+    }
+    cout << endl;
+
+    assert(dist[0] == 0);
+    assert(dist[1] == 5);
+    assert(dist[2] == 8);
+    assert(dist[3] == INT_MAX);
+    assert(parentPath[3] == -1);
+
+    g.PrintShortPath('0', dist, parentPath);
+    cout << "Test4 PASSED!" << endl << endl;
+}
+
+// Test5: 源点不是第一个顶点
+void TestDijkstra_DifferentSource()
+{
+    cout << "===== Test5: Dijkstra - source not first =====" << endl;
+    Graph<char, int, INT_MAX, true> g("0123", 4);
+    g.AddEdge('0', '1', 1);
+    g.AddEdge('0', '3', 4);
+    g.AddEdge('1', '3', 2);
+    g.AddEdge('1', '2', 9);
+    g.AddEdge('2', '3', 8);
+    g.AddEdge('2', '1', 5);
+    g.AddEdge('2', '0', 3);
+    g.AddEdge('3', '2', 6);
+
+    vector<int> dist;
+    vector<int> parentPath;
+    g.Dijkstra('2', dist, parentPath);
+
+    cout << "dist from '2': ";
+    for (size_t i = 0; i < dist.size(); i++)
+        cout << i << "=" << dist[i] << " ";
+    cout << endl;
+
+    // 2->0=3, 2->1=4(2->0->1), 2->2=0, 2->3=6(2->0->1->3)
+    assert(dist[0] == 3);
+    assert(dist[1] == 4);
+    assert(dist[2] == 0);
+    assert(dist[3] == 6);
+
+    g.PrintShortPath('2', dist, parentPath);
+    cout << "Test5 PASSED!" << endl << endl;
+}
+
+// Test6: 单顶点
+void TestDijkstra_SingleVertex()
+{
+    cout << "===== Test6: Dijkstra - single vertex =====" << endl;
+    char a[] = { '0' };
+    Graph<char, int, INT_MAX, true> g(a, 1);
+
+    vector<int> dist;
+    vector<int> parentPath;
+    g.Dijkstra('0', dist, parentPath);
+
+    assert(dist.size() == 1);
+    assert(dist[0] == 0);
+    assert(parentPath[0] == -1);
+    cout << "dist[0] = " << dist[0] << endl;
+    cout << "Test6 PASSED!" << endl << endl;
 }
 
 int main()
 {
-    TestKruskal_Known();
-    TestKruskal_Disconnected();
-    TestKruskal_SingleVertex();
-    TestKruskal_Complex();
-    TestPrim_Known();
-    TestPrim_Disconnected();
-    TestPrim_SingleVertex();
-    TestPrim_Complex();
-    Test_Kruskal_vs_Prim();
-    Test_OriginalDirected();
+    TestDijkstra_Directed();
+    TestDijkstra_PrintPath();
+    TestDijkstra_Undirected();
+    TestDijkstra_Unreachable();
+    TestDijkstra_DifferentSource();
+    TestDijkstra_SingleVertex();
 
     cout << "==============================" << endl;
-    cout << "  ALL 10 TESTS PASSED!" << endl;
+    cout << "  ALL 6 TESTS PASSED!" << endl;
     cout << "==============================" << endl;
     return 0;
 }

@@ -5,6 +5,7 @@
 #include <climits>
 #include <stdexcept> // invalid_argument
 #include <queue>//BFS遍历
+#include <algorithm>
 
 #include "UnionFindSet.hpp"//并查集+最小生成树
 using namespace std;
@@ -268,32 +269,109 @@ namespace matrix
 			return W();
 		}
 
+		// Dijkstra 单源最短路径算法
+		// 参数说明：
+		//   src        : 源点（起点）的数据，类型为顶点数据类型 V
+		//   dist       : 出参，记录源点到每个顶点的最短距离，类型 W 为权值类型
+		//   parentPath : 出参，记录最短路径树上每个顶点的前驱顶点下标，用于回溯路径
 		void Dijkstra(const V& src, vector<W>& dist, vector<int>& parentPath)
 		{
+			// 1. 根据源点数据找到它在顶点数组中的下标
+			size_t srci = GetVertexIndex(src);
+			// 顶点总数
+			size_t n = _vertexs.size();
 
+			// 2. 初始化距离数组：源点到所有顶点的距离先设为无穷大 max_w
+			dist.resize(n, max_w);
+			// 初始化前驱数组：所有顶点的前驱先设为 -1（表示无前驱）
+			parentPath.resize(n, -1);
+
+			// 源点到自身的距离为 0
+			dist[srci] = 0;
+			// 源点没有前驱，保持 -1
+			parentPath[srci] = -1;
+
+			// 3. S 集合：标记已经确定最短路径的顶点
+			//    初始时只有源点被确定
+			vector<bool> S(n, false);
+
+			// 4. 主循环：总共需要确定 n 个顶点的最短路径
+			//    每一轮选出一个当前距离最小、且尚未确定的顶点加入 S
+			for (size_t j = 0; j < n; j++)
+			{
+				// 4.1 在尚未确定最短路径的顶点中，找距离源点最近的顶点 u
+				int u = -1;          // 记录选中顶点的下标
+				W min = max_w;      // 记录当前最小距离
+				for (size_t i = 0; i < n; i++)
+				{
+					// 只在未确定的顶点中挑选
+					if (S[i] == false && dist[i] < min)
+					{
+						u = (int)i;
+						min = dist[i];
+					}
+				}
+
+				if (u == -1) break;//剩余顶点都不可达
+
+				// 4.2 将顶点 u 加入已确定集合 S，此时 dist[u] 就是源点到 u 的最短距离
+				S[u] = true;
+
+				// 4.3 松弛操作：以 u 为中转点，更新源点到 u 的邻接点 v 的距离
+				//     逻辑：源点 -> u 的最短距离 + u -> v 的边权 < 源点 -> v 当前距离
+				//           则说明经过 u 再到 v 更短，更新 dist[v] 并记录前驱
+				for (size_t v = 0; v < n; v++)
+				{
+					// _matrix[u][v] != max_w 表示 u 到 v 存在边
+					// dist[u] + 边权 < dist[v] 表示经过 u 中转更优
+					if (_matrix[u][v] != max_w
+						&& dist[u] + _matrix[u][v] < dist[v]
+						&&S[v]==false
+						&&dist[u]!=max_w)
+					{
+						// 更新更短的距离
+						dist[v] = dist[u] + _matrix[u][v];
+						// 记录 v 的前驱是 u，后续可通过 parentPath 回溯完整路径
+						parentPath[v] = u;
+					}
+				}
+			}
+		}
+
+		//打印最短路径的逻辑算法
+		void PrintShortPath(const V& src, const vector<W>& dist, const vector<int>& parentPath)
+		{
+			size_t srci = GetVertexIndex(src);
+			size_t n = _vertexs.size();
+			for (size_t i = 0; i < n; i++)
+			{
+				if (i != srci)
+				{
+					//找出i顶点的路径
+					vector<int> path;
+					int cur = (int)i;
+					path.push_back(i);
+					while (cur != -1)
+					{
+						path.push_back(cur);
+						cur = parentPath[cur];
+					}
+					path.push_back(srci);
+
+					reverse(path.begin(), path.end());
+					for (auto e : path)
+					{
+						cout << _vertexs[e] << "->";
+					}
+					cout << dist[i] << endl;
+				}
+			}
 		}
 	private:
 		vector<V> _vertexs;          // 顶点集合
 		map<V, size_t> _indexMap;    // 顶点值 -> 下标的映射
 		vector<vector<W>> _matrix;   // 邻接矩阵
 	};
-
-	// 测试函数
-	void TestGraph()
-	{
-		Graph<char, int, INT_MAX, true> g("0123", 4); // 4个顶点的有向图
-		g.AddEdge('0', '1', 1);
-		g.AddEdge('0', '3', 4);
-		g.AddEdge('1', '3', 2);
-		g.AddEdge('1', '2', 9);
-		g.AddEdge('2', '3', 8);
-		g.AddEdge('2', '1', 5);
-		g.AddEdge('2', '0', 3);
-		g.AddEdge('3', '2', 6);
-		//g.Print();
-		//g.BFS('0');
-		g.DFS('0');
-	}
 }
 
 namespace LinkTable
@@ -395,14 +473,4 @@ namespace LinkTable
 		vector<V> _vertexs;//顶点集合
 		vector<Edge*> _linkTable;//边的集合的邻接表
 	};
-
-	void TestGraph()
-	{
-		string a[] = { "张三", "李四", "王五", "赵六" };
-		Graph<string, int> g1(a, 4);
-		g1.AddEdge("张三", "李四", 100);
-		g1.AddEdge("张三", "王五", 200);
-		g1.AddEdge("王五", "赵六", 30);
-		g1.Print();
-	}
 }
