@@ -326,8 +326,8 @@ namespace matrix
 					// dist[u] + 边权 < dist[v] 表示经过 u 中转更优
 					if (_matrix[u][v] != max_w
 						&& dist[u] + _matrix[u][v] < dist[v]
-						&&S[v]==false
-						&&dist[u]!=max_w)
+						&& S[v] == false
+						&& dist[u] != max_w)
 					{
 						// 更新更短的距离
 						dist[v] = dist[u] + _matrix[u][v];
@@ -367,6 +367,61 @@ namespace matrix
 				}
 			}
 		}
+
+		bool BellmanFord(const V& src, vector<W>& dist, vector<int>& parentPath)
+		{
+			size_t n = _vertexs.size();
+			size_t srci = GetVertexIndex(src);
+
+			//vector<W> dist,记录srci-其他顶点最短路权值数组
+			dist.resize(n, max_w);
+
+			//vector<int> parentPath记录srci-其他顶点最短路径父顶点数组
+			parentPath.resize(n, -1);
+
+			//先更新srci->srci为缺省值
+			dist[srci] = W();
+
+			//总体更新n轮
+			//i->j更新k次
+			for (size_t k = 0; k < n-1; k++) 
+			{
+				bool updated = false;
+				//i->j更新松弛
+				for (size_t i = 0; i < n; i++)
+				{
+					if (dist[i] == max_w) continue;
+					for (size_t j = 0; j < n; j++)
+					{
+						// (srci->i + i->j)
+						if (_matrix[i][j] != max_w && dist[i] + _matrix[i][j] < dist[j])
+						{
+							dist[j] = dist[i] + _matrix[i][j];
+							parentPath[j] = (int)i;
+							updated = true;
+						}
+					}
+				}
+				if (!updated)break;//提前收敛
+			}
+
+			//第n轮,检测负权环
+			for (size_t i = 0; i < n; i++)
+			{
+				if (dist[i] == max_w) continue;
+				for (size_t j = 0; j < n; j++)
+				{
+					// (srci->i + i->j)
+					if (_matrix[i][j] != max_w && dist[i] + _matrix[i][j] < dist[j])
+					{
+						return false;
+					}
+				}
+			}
+
+			return true;
+		}
+
 	private:
 		vector<V> _vertexs;          // 顶点集合
 		map<V, size_t> _indexMap;    // 顶点值 -> 下标的映射

@@ -4,10 +4,10 @@
 using namespace std;
 using namespace matrix;
 
-// Test1: 有向图，验证 dist 数组
-void TestDijkstra_Directed()
+// Test1: normal directed graph, compare with Dijkstra
+void TestBellmanFord_Normal()
 {
-    cout << "===== Test1: Dijkstra - directed =====" << endl;
+    cout << "===== Test1: BellmanFord - normal directed =====" << endl;
     Graph<char, int, INT_MAX, true> g("0123", 4);
     g.AddEdge('0', '1', 1);
     g.AddEdge('0', '3', 4);
@@ -20,8 +20,9 @@ void TestDijkstra_Directed()
 
     vector<int> dist;
     vector<int> parentPath;
-    g.Dijkstra('0', dist, parentPath);
+    bool ok = g.BellmanFord('0', dist, parentPath);
 
+    cout << "ok = " << (ok ? "true" : "false") << endl;
     cout << "dist from '0': ";
     for (size_t i = 0; i < dist.size(); i++)
     {
@@ -30,81 +31,74 @@ void TestDijkstra_Directed()
     }
     cout << endl;
 
-    cout << "parentPath: ";
-    for (int p : parentPath) cout << p << " ";
-    cout << endl;
-
-    // 0->0=0, 0->1=1, 0->2=9(0->1->3->2), 0->3=3(0->1->3)
+    assert(ok == true);
     assert(dist[0] == 0);
     assert(dist[1] == 1);
     assert(dist[2] == 9);
     assert(dist[3] == 3);
+
+    g.PrintShortPath('0', dist, parentPath);
     cout << "Test1 PASSED!" << endl << endl;
 }
 
-// Test2: PrintShortPath 输出验证
-void TestDijkstra_PrintPath()
+// Test2: graph with negative weights (Dijkstra would fail here)
+void TestBellmanFord_NegativeWeight()
 {
-    cout << "===== Test2: PrintShortPath =====" << endl;
-    Graph<char, int, INT_MAX, true> g("0123", 4);
-    g.AddEdge('0', '1', 1);
-    g.AddEdge('0', '3', 4);
-    g.AddEdge('1', '3', 2);
-    g.AddEdge('1', '2', 9);
-    g.AddEdge('2', '3', 8);
-    g.AddEdge('2', '1', 5);
-    g.AddEdge('2', '0', 3);
-    g.AddEdge('3', '2', 6);
-
-    vector<int> dist;
-    vector<int> parentPath;
-    g.Dijkstra('0', dist, parentPath);
-
-    cout << "Shortest paths from '0':" << endl;
-    g.PrintShortPath('0', dist, parentPath);
-    cout << "Test2 PASSED!" << endl << endl;
-}
-
-// Test3: 无向图
-void TestDijkstra_Undirected()
-{
-    cout << "===== Test3: Dijkstra - undirected =====" << endl;
-    char a[] = { 'A', 'B', 'C', 'D', 'E' };
-    Graph<char, int, INT_MAX, false> g(a, 5);
+    cout << "===== Test2: BellmanFord - negative weights =====" << endl;
+    char a[] = { 'A', 'B', 'C', 'D' };
+    Graph<char, int, INT_MAX, true> g(a, 4);
 
     g.AddEdge('A', 'B', 4);
-    g.AddEdge('A', 'C', 8);
-    g.AddEdge('B', 'C', 11);
-    g.AddEdge('B', 'D', 8);
-    g.AddEdge('C', 'D', 7);
-    g.AddEdge('C', 'E', 1);
-    g.AddEdge('D', 'E', 2);
-    g.AddEdge('A', 'E', 6);
+    g.AddEdge('A', 'C', 5);
+    g.AddEdge('B', 'C', -3);   // negative edge
+    g.AddEdge('C', 'D', 2);
+    g.AddEdge('B', 'D', 10);
 
     vector<int> dist;
     vector<int> parentPath;
-    g.Dijkstra('A', dist, parentPath);
+    bool ok = g.BellmanFord('A', dist, parentPath);
 
+    cout << "ok = " << (ok ? "true" : "false") << endl;
     cout << "dist from 'A': ";
     for (size_t i = 0; i < dist.size(); i++)
         cout << a[i] << "=" << dist[i] << " ";
     cout << endl;
 
-    // A=0, B=4, C=7(A->E->C), D=8(A->E->D), E=6
+    // A->A=0, A->B=4, A->C=1(A->B->C: 4+(-3)), A->D=3(A->B->C->D: 4-3+2)
+    assert(ok == true);
     assert(dist[0] == 0);
     assert(dist[1] == 4);
-    assert(dist[2] == 7);
-    assert(dist[3] == 8);
-    assert(dist[4] == 6);
+    assert(dist[2] == 1);
+    assert(dist[3] == 3);
 
     g.PrintShortPath('A', dist, parentPath);
+    cout << "Test2 PASSED!" << endl << endl;
+}
+
+// Test3: negative cycle - should return false
+void TestBellmanFord_NegativeCycle()
+{
+    cout << "===== Test3: BellmanFord - negative cycle =====" << endl;
+    char a[] = { 'A', 'B', 'C' };
+    Graph<char, int, INT_MAX, true> g(a, 3);
+
+    g.AddEdge('A', 'B', 1);
+    g.AddEdge('B', 'C', -2);
+    g.AddEdge('C', 'A', -3);  // A->B->C->A = 1-2-3 = -4, negative cycle
+
+    vector<int> dist;
+    vector<int> parentPath;
+    bool ok = g.BellmanFord('A', dist, parentPath);
+
+    cout << "ok = " << (ok ? "true" : "false") << endl;
+    assert(ok == false);
     cout << "Test3 PASSED!" << endl << endl;
 }
 
-// Test4: 不可达顶点
-void TestDijkstra_Unreachable()
+// Test4: unreachable vertex
+void TestBellmanFord_Unreachable()
 {
-    cout << "===== Test4: Dijkstra - unreachable =====" << endl;
+    cout << "===== Test4: BellmanFord - unreachable =====" << endl;
     char a[] = { '0', '1', '2', '3' };
     Graph<char, int, INT_MAX, true> g(a, 4);
     g.AddEdge('0', '1', 5);
@@ -113,8 +107,9 @@ void TestDijkstra_Unreachable()
 
     vector<int> dist;
     vector<int> parentPath;
-    g.Dijkstra('0', dist, parentPath);
+    bool ok = g.BellmanFord('0', dist, parentPath);
 
+    cout << "ok = " << (ok ? "true" : "false") << endl;
     cout << "dist from '0': ";
     for (size_t i = 0; i < dist.size(); i++)
     {
@@ -123,6 +118,7 @@ void TestDijkstra_Unreachable()
     }
     cout << endl;
 
+    assert(ok == true);
     assert(dist[0] == 0);
     assert(dist[1] == 5);
     assert(dist[2] == 8);
@@ -133,10 +129,10 @@ void TestDijkstra_Unreachable()
     cout << "Test4 PASSED!" << endl << endl;
 }
 
-// Test5: 源点不是第一个顶点
-void TestDijkstra_DifferentSource()
+// Test5: source is not first vertex
+void TestBellmanFord_DifferentSource()
 {
-    cout << "===== Test5: Dijkstra - source not first =====" << endl;
+    cout << "===== Test5: BellmanFord - source not first =====" << endl;
     Graph<char, int, INT_MAX, true> g("0123", 4);
     g.AddEdge('0', '1', 1);
     g.AddEdge('0', '3', 4);
@@ -149,14 +145,15 @@ void TestDijkstra_DifferentSource()
 
     vector<int> dist;
     vector<int> parentPath;
-    g.Dijkstra('2', dist, parentPath);
+    bool ok = g.BellmanFord('2', dist, parentPath);
 
+    cout << "ok = " << (ok ? "true" : "false") << endl;
     cout << "dist from '2': ";
     for (size_t i = 0; i < dist.size(); i++)
         cout << i << "=" << dist[i] << " ";
     cout << endl;
 
-    // 2->0=3, 2->1=4(2->0->1), 2->2=0, 2->3=6(2->0->1->3)
+    assert(ok == true);
     assert(dist[0] == 3);
     assert(dist[1] == 4);
     assert(dist[2] == 0);
@@ -166,17 +163,18 @@ void TestDijkstra_DifferentSource()
     cout << "Test5 PASSED!" << endl << endl;
 }
 
-// Test6: 单顶点
-void TestDijkstra_SingleVertex()
+// Test6: single vertex
+void TestBellmanFord_SingleVertex()
 {
-    cout << "===== Test6: Dijkstra - single vertex =====" << endl;
+    cout << "===== Test6: BellmanFord - single vertex =====" << endl;
     char a[] = { '0' };
     Graph<char, int, INT_MAX, true> g(a, 1);
 
     vector<int> dist;
     vector<int> parentPath;
-    g.Dijkstra('0', dist, parentPath);
+    bool ok = g.BellmanFord('0', dist, parentPath);
 
+    assert(ok == true);
     assert(dist.size() == 1);
     assert(dist[0] == 0);
     assert(parentPath[0] == -1);
@@ -186,12 +184,12 @@ void TestDijkstra_SingleVertex()
 
 int main()
 {
-    TestDijkstra_Directed();
-    TestDijkstra_PrintPath();
-    TestDijkstra_Undirected();
-    TestDijkstra_Unreachable();
-    TestDijkstra_DifferentSource();
-    TestDijkstra_SingleVertex();
+    TestBellmanFord_Normal();
+    TestBellmanFord_NegativeWeight();
+    TestBellmanFord_NegativeCycle();
+    TestBellmanFord_Unreachable();
+    TestBellmanFord_DifferentSource();
+    TestBellmanFord_SingleVertex();
 
     cout << "==============================" << endl;
     cout << "  ALL 6 TESTS PASSED!" << endl;
