@@ -384,7 +384,7 @@ namespace matrix
 
 			//总体更新n轮
 			//i->j更新k次
-			for (size_t k = 0; k < n-1; k++) 
+			for (size_t k = 0; k < n - 1; k++)
 			{
 				bool updated = false;
 				//i->j更新松弛
@@ -420,6 +420,99 @@ namespace matrix
 			}
 
 			return true;
+		}
+
+		void FloydWarshall(vector<vector<W>>& vvDist, vector<vector<int>>& vvparentPath)
+		{
+			size_t n = _vertexs.size();
+			vvDist.resize(n);
+			vvparentPath.resize(n);
+
+			//初始化权值和路径矩阵
+			for (size_t i = 0; i < n; i++)
+			{
+				vvDist[i].resize(n, max_w);
+				vvparentPath[i].resize(n, -1);
+			}
+
+			//直接相邻的边更新一下
+			for (size_t i = 0; i < n; i++)
+			{
+				for (size_t j = 0; j < n; j++)
+				{
+					if (_matrix[i][j] != max_w)
+					{
+						vvDist[i][j] = _matrix[i][j];
+						vvparentPath[i][j] = i;
+					}
+					if (i == j) vvDist[i][j] = W();
+				}
+			}
+
+			//最短路径更新i->{k个顶点}->j
+			for (size_t k = 0; k < n; k++)
+			{
+				for (size_t i = 0; i < n; i++)
+				{
+					for (size_t j = 0; j < n; j++)
+					{
+						//k作为的中间点,k尝试更新i->j的路径
+						if (vvDist[i][k] != max_w && vvDist[k][j] != max_w
+							&& vvDist[i][k] + vvDist[k][j] < vvDist[i][j])
+						{
+							vvDist[i][j] = vvDist[i][k] + vvDist[k][j];
+							//找跟j相连大的上一个邻接顶点
+							//如果k->j直接相连,上一个点就是k,vvparentPath[k][j]存的就是k
+							//如果k->j没有直接相连
+							vvparentPath[i][j] = vvparentPath[k][j];
+						}
+					}
+				}
+			}
+		}
+
+		// Print all - pairs shortest paths computed by FloydWarshall
+		void PrintFloydPaths(const vector<vector<W>>& vvDist,const vector<vector<int>>& vvparentPath)
+		{
+			size_t n = _vertexs.size();
+			for (size_t i = 0; i < n; i++)
+			{
+				for (size_t j = 0; j < n; j++)
+				{
+					if (i == j) continue;
+
+					cout << _vertexs[i] << " -> " << _vertexs[j] << " : ";
+
+					if (vvDist[i][j] == max_w)
+					{
+						cout << "unreachable" << endl;
+						continue;
+					}
+
+					// Reconstruct path: follow predecessors from j back to i
+					vector<int> path;
+					int cur = (int)j;
+					while (cur != -1 && (size_t)cur != i)
+					{
+						path.push_back(cur);
+						cur = vvparentPath[i][cur];
+					}
+					if (cur == -1)
+					{
+						cout << "unreachable" << endl;
+						continue;
+					}
+					path.push_back((int)i);
+					reverse(path.begin(), path.end());
+
+					for (size_t idx = 0; idx < path.size(); idx++)
+					{
+						if (idx > 0) cout << "->";
+						cout << _vertexs[path[idx]];
+					}
+					cout << " (weight=" << vvDist[i][j] << ")" << endl;
+				}
+			}
 		}
 
 	private:
