@@ -1,32 +1,40 @@
-# Build and Release Folders
-bin-debug/
-bin-release/
-[Oo]bj/
-[Bb]in/
+# ========== CMake编译产物（最重要） ==========
+build/
+build-*/
+cmake-build-*/
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+install_manifest.txt
 
-# Other files and folders
-.settings/
-
-# Executables
-*.swf
-*.air
-*.ipa
-*.apk
-
-#过滤掉不想要文件和文件夹
-*.exe
+# ========== Visual Studio 生成文件 ==========
+.vs/
+Debug/
+Release/
+x64/Debug/
+x64/Release/
 *.sln
 *.vcxproj
-*.filters
-*.user
+*.vcxproj.filters
+*.vcxproj.user
 *.suo
-*.db
 *.ipch
-Debug/
-.vs
-Release/
-CMake/
+*.db
 
-# Project files, i.e. `.project`, `.actionScriptProperties` and `.flexProperties`
-# should NOT be excluded as they contain compiler settings and other important
-# information for Eclipse / Flash Builder.
+# ========== 编译输出二进制 ==========
+[Bb]in/
+[Oo]bj/
+*.exe
+*.dll
+*.lib
+*.pdb
+
+# ========== IDE杂项 ==========
+.settings/
+.vscode/.cache/
+.vscode/settings.json
+*.user
+
+# ========== OS系统文件 ==========
+.DS_Store
+Thumbs.db
