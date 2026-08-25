@@ -6,7 +6,7 @@ add_library(MyMath STATIC ${SRC_LISTS})
 
 #3设置库的使用要求，也就是下游消费者必须包含的头文件搜索路径
 target_include_directories(MyMath INTERFACE 
-    "$<INSTALL_INTERFACE:include:${CMAKE_INSTALL_INCLUDEDIR}>" #/usr/local/include
+    "$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>" #/usr/local/include
 )
 
 #4设置库的默认输出路径
@@ -23,8 +23,8 @@ install(TARGETS MyMath
 
 #6安装头文件
 install(DIRECTORY include/
-    DESTINATION ${CMAKE_INSTALL_INCLUDEDIR} /math #/usr/local/include/math/math.h
-    FILES_MATCHING PATHTERN "*.h"
+    DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/math #/usr/local/include/math/math.h
+    FILES_MATCHING PATTERN "*.h"
 )
 
 #7安装导出目标集合 到 构建树
@@ -36,13 +36,13 @@ export(EXPORT MyMathTargets
 install(EXPORT MyMathTargets
     FILE MyMathTargets.cmake
     NAMESPACE MyMath:: #MyMath::MyMath
-    DESTINATION ${CMAKE_INSTALL_LOIBDIR}/cmake/MyMath # /usr/local/lib/cmake/MyMathTargets.cmake
+    DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/MyMath # /usr/local/lib/cmake/MyMathTargets.cmake
 )
 
 #9生成find_package需要的配置文件
 include(CMakePackageConfigHelpers)
 configure_package_config_file(
-    ${CMAKE_CURRENT_DOURCE_DIR}/Config.cmake.in
+    ${CMAKE_CURRENT_SOURCE_DIR}/Config.cmake.in
     ${CMAKE_CURRENT_BINARY_DIR}/MyMathConfig.cmake
     INSTALL_DESTINATION "lib/cmake/MyMath"
 )
