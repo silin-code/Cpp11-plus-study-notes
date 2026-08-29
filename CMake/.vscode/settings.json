@@ -1,3 +1,5 @@
 {
-    "cmake.sourceDirectory": "/home/silin/CPP-Code/Cpp11-plus-study-notes/CMake/CMake5"
+    "cmake.sourceDirectory": "/home/silin/CPP-Code/Cpp11-plus-study-notes/CMake/CMake5",
+    "window.autoDetectColorScheme": true,
+    "chat.agent.enabled": false
 }
