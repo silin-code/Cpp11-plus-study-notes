@@ -1,9 +1,7 @@
 cmake_minimum_required(VERSION 3.18)
 
-project(DirectScopeDemo)
+project(CaCheScopDemo)
 
-set(SCOP "Parent Scop")
-
-add_subdirectory(sub)
-
-message("3 main : ${SCOP}")
+set(OS "MAC" CACHE STRING "OS name" FORCE)
+message("OS : ${OS}")
+message("OS : $CACHE{OS}")
