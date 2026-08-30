@@ -1,7 +1,11 @@
 cmake_minimum_required(VERSION 3.18)
 
-project(CaCheScopDemo)
+project(EnvVarDemo)
 
-set(OS "MAC" CACHE STRING "OS name" FORCE)
-message("OS : ${OS}")
-message("OS : $CACHE{OS}")
+message("1 env: $ENV{OS}")
+
+set(ENV{OS} "linux")
+
+message("2 env: $ENV{OS}")
+
+message("3 env: ${OS}")
