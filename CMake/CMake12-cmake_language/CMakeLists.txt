@@ -1,17 +1,9 @@
 cmake_minimum_required(VERSION 3.18)
 
-project(FunctionScopDemo)
+project(DirectScopeDemo)
 
-set(SCOP "Directory Scop")
+set(SCOP "Parent Scop")
 
-function(print_var)
-    #1获取父级目录变量
-    message("1 func: ${SCOP}")
-    #2设置修改变量
-    set(SCOP "Function Scop" PARENT_SCOPE)
-    message("2 func: ${SCOP}")
-endfunction(print_var)
+add_subdirectory(sub)
 
-print_var()
-message("3 main: ${SCOP}")
-
+message("3 main : ${SCOP}")
