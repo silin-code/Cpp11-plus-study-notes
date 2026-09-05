@@ -6,8 +6,9 @@ struct BTreeNode {
 	BTreeNode<K, M>* _subs[M];*/
 
 	//为了方便插入以后在分裂,可以多给一个空间
-	K _keys[M];
-	BTreeNode<K, M>* _subs[M+1];
+	K _keys[M];//存M个key
+	BTreeNode<K, M>* _subs[M + 1];//存M+1个孩子指针
+	BTreeNode<K, M>* _parent;//存父指针(方便向上分裂)
 	size_t _n;//记录实际存储多个关键字
 
 	BTreeNode()
@@ -18,6 +19,7 @@ struct BTreeNode {
 			_subs[i] = nullptr;
 		}
 		_subs[M] = nullptr;
+		_parent = nullptr;
 		_n = 0;
 	}
 };
@@ -27,30 +29,26 @@ template<typename K, size_t M>
 class BTree {
 	using Node = BTreeNode<K, M>;
 public:
+	//返回当前的树指针+值
 	pair<Node*, int> Find(const K& key)
 	{
 		Node* parent = nullptr;
 		Node* cur = _root;
 		while (cur) {
 			size_t i = 0;
-			while (i < cur->_n)
+			//找第一个>=key的位置
+			while (i < cur->_n&& key>cur->_keys[i])
 			{
-				if (key < cur->_keys[i])
-				{
-					//_key[i]的左孩子,左孩子和他的下标相等
-					cur = cur->_subs[i];
-				}
-				else if (key > cur->_keys[i])
-				{
-					i++;
-				}
-				else
-				{
-					return { cur,i };
-				}
+				i++;
 			}
 
-			//往孩子去跳
+			//命中
+			if (i < cur->_n && key == cur->_keys[i])
+			{
+				return { cur,(int)i };
+			}
+
+			//没有命中,往孩子去跳
 			parent = cur;
 			cur = cur->_subs[i];
 		}
@@ -58,9 +56,31 @@ public:
 		return { parent,-1 };
 	}
 
+	void InsertKey(Node* node, const K& key, Node* child)
+	{
+		int end = node->_n - 1;
+		while (end >= 0)
+		{
+			if (key < node->_keys[end])
+			{
+				node->_keys[end + 1] = node->_keys[end];
+				node->_subs[end + 2] = node->_subs[end + 1];
+				end--;
+			}
+			else
+			{
+				break;
+			}
+		}
+		node->_keys[end + 1] = key;
+		node->_keys[end + 2] = child;
+		node->_n++;
+
+	}
+
 	bool Insert(const K& key)
 	{
-		if (_root = nullptr)
+		if (_root == nullptr)
 		{
 			_root = new Node;
 			_root->_keys[0] = key;
@@ -69,7 +89,7 @@ public:
 
 		//key已经存在,不允许1插入
 		pair<Node*, int> ret = Find(key);
-		if (ret->second >= 0)
+		if (ret.second >= 0)
 		{
 			return false;
 		}
@@ -77,7 +97,7 @@ public:
 		//如果没有找到,find顺便带回要插入的那个叶子节点
 
 		//循环每次往cur插入 ,newkey和child
-		Node* parent = ret->first;
+		Node* parent = ret.first;
 		K newkey = key;
 		Node* child = nullptr;
 
@@ -92,14 +112,31 @@ public:
 			}
 			else
 			{
-				//分裂一半[mid+1,M-1]给兄弟
 				size_t mid = M / 2;
+				//分裂一半[mid+1,M-1]给兄弟
 				Node* brother = new Node;
 				size_t j = 0;
 				for (size_t i = mid + 1; i <= M - 1; i++)
 				{
-					brother->_keys[j++] = parent->_keys[i];
+					//key和key的左孩子
+					brother->_keys[j] = parent->_keys[i];
+					brother->_subs[j] = parent->_subs[i];
+					if (parent->_subs[i])
+					{
+						parent->_subs[i]->_parent = brother;
+					}
+
+					j++;
+					//parent->_keys[i] = K();
 				}
+
+				//还有最后一个右孩子拷给
+				brother->_subs[j] = parent->_subs[i];
+				if (parent->_subs[i])
+				{
+					parent->_subs[i]->_parent = brother;
+				}
+
 				brother->_n = j;
 				parent->_n -= (brother->_n + 1);
 
@@ -111,14 +148,16 @@ public:
 					_root->_subs[0] = parent;
 					_root->_subs[1] = brother;
 					_root->_n = 1;
-					return true;
+					parent->_parent = _root;
+					brother->_parent = _root;
+					break;
 				}
 				else
 				{
 					//转换成往parent->parent去插入parent->[mid]和brother
-					newkey = parent ->[mid];
+					newkey = parent ->_keys[mid];
 					child = brother;
-					parent = parent->parent;
+					parent = parent->_parent;
 				}
 			}
 		}
@@ -131,7 +170,7 @@ private:
 
 void Test()
 {
-	int a[] = { 53,139,75,49,145,36,101 };
+	int a[] = { 53,139,75,49,145,36,101};
 	BTree<int, 3> t;
 	for (auto e : a)
 	{
