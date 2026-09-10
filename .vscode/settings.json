@@ -1,4 +1,5 @@
 {
-    "C_Cpp.default.compilerPath": "D:/GCC/mingw64/bin/g++.exe",
-    "cmake.sourceDirectory": "C:/Users/思麟/Desktop/Cpp11-plus-study-notes/CMake/CMake1"
+    "C_Cpp.default.compilerPath": "E:/GCC/mingw64/bin/g++.exe",
+    "cmake.sourceDirectory": "${workspaceFolder}/CMake/CMake1",
+    "cmake.generator": "MinGW Makefiles"
 }

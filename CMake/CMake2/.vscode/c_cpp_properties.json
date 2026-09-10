@@ -4,7 +4,7 @@
             "name": "Win32",
             "includePath": [
                 "${workspaceFolder}/**",
-                "${workspaceFolder}/my_lib/include/**",
+                "${workspaceFolder}/my_lib/include/**"
             ],
             "defines": [
                 "_DEBUG",

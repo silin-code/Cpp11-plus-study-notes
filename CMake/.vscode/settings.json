@@ -1,5 +1,6 @@
 {
-    "cmake.sourceDirectory": "/home/silin/CPP-Code/Cpp11-plus-study-notes/CMake/CMake5",
+    "cmake.sourceDirectory": "${workspaceFolder}/CMake5",
+    "cmake.generator": "MinGW Makefiles",
     "window.autoDetectColorScheme": true,
     "chat.agent.enabled": false
 }
