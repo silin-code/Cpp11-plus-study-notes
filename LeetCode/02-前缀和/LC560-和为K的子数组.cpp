@@ -2,45 +2,64 @@
 // LeetCode 560. 和为 K 的子数组
 // 考点：前缀和 + 哈希表（"两数之和"的变体）
 // 复杂度：时间 O(n)，空间 O(n)
-// 日期：2026-09-11
+// 日期：2026-09-11 初版 / 2026-09-17 不看代码重写，3 分钟，随机对拍 2000 组通过
 // ============================================================
 //
 // 【题意】
 // 统计和恰好为 k 的连续子数组个数。
 //
 // 【推导】
-// 设 s[i] = nums[0..i-1] 之和（前缀和，s[0] = 0）。
-// 子数组 nums[j..i-1] 的和 = s[i] - s[j]，要它等于 k：
-//     s[i] - s[j] = k   ⟺   s[j] = s[i] - k
-// 所以扫描到 i 时，只需要问："之前出现过几次前缀和等于 s[i] - k？"
+// dp[i] = nums[0..i] 之和（本版 dp[0] = nums[0]）。
+// 子数组 nums[j..i] 的和 = dp[i] - dp[j-1]，要它等于 k：
+//     dp[i] - dp[j-1] = k   ⟺   dp[j-1] = dp[i] - k
+// 所以扫到 i 时，只需要问："之前出现过几次前缀和等于 dp[i] - k？"
 //
 // 【为什么 hash[0] 必须先置 1】
 // hash[0] = 1 代表"空前缀的和为 0，出现过 1 次"。
-// 当 s[i] == k 时，要找的另一半是 0；没有这个初始化，
-// **所有从下标 0 开始的合法子数组都会被漏掉**。
+// 当 dp[i] == k 时，要找的另一半是 0；没有这个初始化，
+// 所有从下标 0 开始的合法子数组都会被漏掉。
+// （09-15 小测正是栽在这 —— [1,-1,0] k=0 会漏掉 1 个）
 //
 // 【顺序：先查再插】
-// 必须先 ret += hash[...] 再 hash[s[i]]++，
+// 必须先 ret += hash[...] 再 hash[dp[i]]++，
 // 否则会把"当前位置自己"也算成一对（子数组长度变成 0）。
+//
+// 【一个隐患：operator[] 会往表里插键 —— 值得记住】
+//   unordered_map 的 operator[] 在键不存在时会**插入**一个值为 0 的项。
+//   所以 ret += hash[e - k]; 这一行虽然结果正确，
+//   但表里会积攒一堆永远不会被用到的负键。
+//   实测：m[0]=1 时 size=1；仅仅"读"了一次 m[-5]，size 就变成 2。
+//   更干净的做法：先 count() / find() 判断存在再取值。
+//   竞赛数据量大时，这个习惯会实打实影响哈希表性能。
+//
+// 【为什么 int 够用 —— 算过才敢用】
+//   约束：n ≤ 2×10^4，|nums[i]| ≤ 1000
+//   前缀和最大 = 2×10^4 × 1000 = 2×10^7   → int 安全
+//   答案最大   = n(n+1)/2 = 2×10^8         → int 安全（上限 2.147×10^9）
+//
+// 【易错】
+// 1. 漏 hash[0] = 1（本版已修正）
+// 2. 先插后查 —— 会把当前元素自己算进去
+// 3. 用 operator[] 读 —— 结果对，但污染哈希表
 // ============================================================
 
 class Solution {
 public:
     int subarraySum(vector<int>& nums, int k) {
-        int ret = 0;
         int n = nums.size();
+        vector<int> dp(n, 0);              // dp[i] = nums[0..i] 之和
+        unordered_map<int, int> hash;
+        hash[0] = 1;                       // 空前缀：和为 0，出现 1 次
 
-        vector<int> dp(n + 1, 0);              // dp[i] = nums[0..i-1] 之和
-        for (int i = 1; i <= n; i++) {
-            dp[i] = dp[i - 1] + nums[i - 1];
+        dp[0] = nums[0];
+        for (int i = 1; i < nums.size(); i++) {
+            dp[i] = dp[i - 1] + nums[i];
         }
 
-        unordered_map<int, int> hash;
-        hash[0]++;                             // 空前缀：和为 0，出现 1 次
-
-        for (int i = 1; i <= n; i++) {
-            ret += hash[dp[i] - k];            // 之前有几个 s[j] == s[i] - k
-            hash[dp[i]]++;                     // 记录当前前缀和
+        int ret = 0;
+        for (auto e : dp) {
+            ret += hash[e - k];            // 先查：之前有几个前缀和 == e - k
+            hash[e]++;                     // 再插：记录当前前缀和
         }
         return ret;
     }
@@ -53,9 +72,9 @@ public:
 // class Solution {
 // public:
 //     int subarraySum(vector<int>& nums, int k) {
-//         unordered_map<long long, int> hash;
+//         unordered_map<int, int> hash;
 //         hash[0] = 1;
-//         long long sum = 0;
+//         int sum = 0;
 //         int ret = 0;
 //         for (int e : nums) {
 //             sum += e;
