@@ -61,7 +61,7 @@
 │   ├── LC318-最大单词长度乘积.cpp                 mask 表示字符集合（**反复两两比较**，必须预压）
 │   └── LC1349-参加考试的最大学生数.cpp            状压 DP（状态 = 行号 + 这一行的坐法）★ 探针重做成功
 └── 07-并查集/                                   ← 从 10-02 起新开一组
-    ├── LC547-省份数量.cpp                        并查集：数集合个数（零件库 `union_find.hpp`）
+    ├── LC547-省份数量.cpp                        并查集：数集合个数（零件库 `UF.hpp`）
     ├── LC990-等式方程的可满足性.cpp              并查集：**两趟**（先合并所有 ==，再验 !=）
     └── LC684-冗余连接.cpp                        并查集：**动态加边判环**（加边前先问"两端已同根？"）
 ```
@@ -339,7 +339,7 @@ int dfs(i, j) {
 
 ### 8. 并查集（Union-Find）
 
-**零件库**：`Algorithm/Lanqiao_competiotion/union_find.hpp`
+**零件库**：`Algorithm/Lanqiao_competiotion/UF.hpp`
 —— **两套约定各一个类**：`UnionFind`（自指 + 循环 find）、`UnionFindNeg`（负数 + 按大小合并 + 递归 find）。
 两个类的功能等价，**实测互证 3600 组零不一致**；`UnionFindNeg` 实测 n=200000 无栈溢出。
 

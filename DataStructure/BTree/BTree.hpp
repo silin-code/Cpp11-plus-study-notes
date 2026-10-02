@@ -1,4 +1,5 @@
 #pragma once
+#include <queue>
 
 template<typename K, size_t M>
 struct BTreeNode {
@@ -220,6 +221,33 @@ public:
 	void InOrder()
 	{
 		_InOrder(_root);
+	}
+
+	//按层打印，用来肉眼验证结构（调试用）
+	void LevelOrder()
+	{
+		if (_root == nullptr) return;
+		queue<Node*> q;
+		q.push(_root);
+		while (!q.empty())
+		{
+			size_t sz = q.size();
+			while (sz--)
+			{
+				Node* cur = q.front(); q.pop();
+				cout << "[";
+				for (size_t i = 0; i < cur->_n; i++)
+				{
+					if (i) cout << "|";
+					cout << cur->_keys[i];
+				}
+				cout << "] ";
+
+				for (size_t i = 0; i <= cur->_n; i++)
+					if (cur->_subs[i]) q.push(cur->_subs[i]);
+			}
+			cout << endl;
+		}
 	}
 
 	/*

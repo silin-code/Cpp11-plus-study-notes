@@ -38,3 +38,5 @@ x64/Release/
 # ========== OS系统文件 ==========
 .DS_Store
 Thumbs.db
+
+.workbuddy

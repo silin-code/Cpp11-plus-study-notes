@@ -1,0 +1,2537 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>B树（B-Tree）的原理与 C++ 完整实现 —— 从插入分裂到删除借位合并</title>
+<style>
+  :root{
+    --bg:#ffffff;
+    --bg-soft:#f7f8fa;
+    --bg-code:#282c34;
+    --text:#2c3038;
+    --text-2:#5a6272;
+    --text-3:#8b93a1;
+    --line:#e6e9ef;
+    --line-2:#d8dde6;
+    --accent:#c0392b;
+    --accent-soft:#fdf2f0;
+    --link:#1f6feb;
+    --blue:#2f6feb;
+    --green:#1a7f4b;
+    --purple:#7a4fd6;
+    --amber:#b7791f;
+    --radius:8px;
+    --mono:"JetBrains Mono","Cascadia Code",Consolas,"Courier New",
+           "Microsoft YaHei",monospace;
+    --sans:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC",
+           "Hiragino Sans GB","Microsoft YaHei",sans-serif;
+  }
+
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{
+    margin:0;
+    background:var(--bg);
+    color:var(--text);
+    font-family:var(--sans);
+    font-size:16px;
+    line-height:1.85;
+    -webkit-font-smoothing:antialiased;
+  }
+
+  /* ---------- 顶部条 ---------- */
+  .topbar{
+    position:sticky;top:0;z-index:50;
+    background:rgba(255,255,255,.88);
+    backdrop-filter:saturate(180%) blur(10px);
+    border-bottom:1px solid var(--line);
+    padding:10px 24px;
+    display:flex;align-items:center;gap:12px;
+    font-size:13px;color:var(--text-3);
+  }
+  .topbar .tag{
+    display:inline-block;padding:2px 9px;border-radius:20px;
+    background:var(--accent-soft);color:var(--accent);
+    font-weight:600;font-size:12px;
+  }
+
+  /* ---------- 布局 ---------- */
+  .layout{
+    display:flex;
+    align-items:flex-start;
+    gap:36px;
+    max-width:1280px;
+    margin:0 auto;
+    padding:36px 24px 100px;
+  }
+  .sidebar{
+    position:sticky;top:64px;
+    width:250px;flex:0 0 250px;
+    max-height:calc(100vh - 96px);
+    overflow-y:auto;
+    border-right:1px solid var(--line);
+    padding-right:20px;
+    font-size:13.5px;
+  }
+  .sidebar h4{
+    margin:0 0 12px;font-size:12px;letter-spacing:.12em;
+    text-transform:uppercase;color:var(--text-3);font-weight:700;
+  }
+  .sidebar ol{list-style:none;margin:0;padding:0;counter-reset:s;}
+  .sidebar li{counter-increment:s;margin:1px 0;}
+  .sidebar a{
+    display:block;padding:5px 10px 5px 30px;
+    color:var(--text-2);text-decoration:none;border-radius:6px;
+    position:relative;line-height:1.5;
+    transition:background .15s,color .15s;
+  }
+  .sidebar a::before{
+    content:counter(s);
+    position:absolute;left:8px;top:5px;
+    color:var(--text-3);font-size:11.5px;
+    font-variant-numeric:tabular-nums;
+  }
+  .sidebar a:hover{background:var(--bg-soft);color:var(--text);}
+  .sidebar a.active{background:var(--accent-soft);color:var(--accent);font-weight:600;}
+  .sidebar a.active::before{color:var(--accent);}
+  .sidebar .sub{padding-left:42px;font-size:12.8px;color:var(--text-3);}
+  .sidebar .sub::before{left:24px;font-size:11px;}
+
+  .content{flex:1 1 auto;min-width:0;max-width:820px;}
+
+  /* ---------- 文章头部 ---------- */
+  .article-head h1{
+    font-size:30px;line-height:1.35;margin:0 0 14px;
+    letter-spacing:-.01em;font-weight:800;
+  }
+  .meta{
+    display:flex;flex-wrap:wrap;gap:14px;
+    font-size:13px;color:var(--text-3);
+    padding-bottom:18px;border-bottom:1px solid var(--line);
+    margin-bottom:22px;
+  }
+  .meta span{display:inline-flex;align-items:center;gap:5px;}
+
+  /* 摘要 */
+  .abstract{
+    background:var(--bg-soft);
+    border-left:3px solid var(--accent);
+    border-radius:0 var(--radius) var(--radius) 0;
+    padding:16px 20px;margin:0 0 30px;
+    font-size:14.5px;color:var(--text-2);
+  }
+  .abstract strong{color:var(--text);}
+  .abstract p{margin:0 0 8px;}
+  .abstract p:last-child{margin-bottom:0;}
+
+  /* ---------- 标题 ---------- */
+  h2{
+    font-size:22.5px;font-weight:750;
+    margin:52px 0 18px;padding-left:14px;
+    border-left:4px solid var(--accent);
+    line-height:1.4;letter-spacing:-.005em;
+    scroll-margin-top:80px;
+  }
+  h3{
+    font-size:18px;font-weight:700;
+    margin:36px 0 14px;color:var(--text);
+    scroll-margin-top:80px;
+  }
+  h4{
+    font-size:15.5px;font-weight:700;
+    margin:28px 0 12px;color:var(--text);
+    scroll-margin-top:80px;
+  }
+  h4::before{
+    content:"";display:inline-block;
+    width:6px;height:6px;border-radius:50%;
+    background:var(--accent);margin-right:8px;
+    vertical-align:2px;
+  }
+  p{margin:0 0 14px;}
+
+  /* ---------- 行内代码 ---------- */
+  code{
+    font-family:var(--mono);
+    font-size:.88em;
+    background:#f0f2f6;
+    color:#b0304a;
+    padding:2px 6px;border-radius:4px;
+    white-space:nowrap;
+  }
+  h2 code,h3 code,h4 code{font-size:.85em;}
+
+  /* ---------- 代码块 ---------- */
+  .code-wrap{
+    position:relative;margin:0 0 18px;
+    border-radius:var(--radius);overflow:hidden;
+    background:var(--bg-code);
+    border:1px solid #1d2027;
+  }
+  .code-head{
+    display:flex;align-items:center;justify-content:space-between;
+    padding:8px 14px;background:#21252b;
+    border-bottom:1px solid #181b21;
+    font-size:12px;color:#8b94a3;
+    font-family:var(--mono);
+  }
+  .code-head .dots{display:flex;gap:6px;}
+  .code-head .dots i{
+    width:9px;height:9px;border-radius:50%;display:block;
+  }
+  .code-head .dots i:nth-child(1){background:#e06c75;}
+  .code-head .dots i:nth-child(2){background:#e5c07b;}
+  .code-head .dots i:nth-child(3){background:#98c379;}
+  .code-head .fname{color:#98a3b3;}
+  .code-head .lang{
+    color:var(--accent);font-weight:600;letter-spacing:.06em;
+  }
+  pre{
+    margin:0;padding:16px 18px;
+    overflow-x:auto;
+    font-family:var(--mono);
+    font-size:13px;line-height:1.7;
+    color:#abb2bf;background:var(--bg-code);
+    tab-size:4;
+  }
+  pre code{
+    background:none;color:inherit;padding:0;
+    white-space:pre;font-size:inherit;
+  }
+  /* 轻量语法着色 */
+  .k{color:#c678dd;}   /* keyword */
+  .t{color:#e5c07b;}   /* type */
+  .f{color:#61afef;}   /* function */
+  .s{color:#98c379;}   /* string */
+  .n{color:#d19a66;}   /* number */
+  .c{color:#5c6370;font-style:italic;} /* comment */
+  .p{color:#abb2bf;}   /* punct */
+  .o{color:#56b6c2;}   /* operator */
+  .pp{color:#e06c75;}  /* preproc */
+
+  /* ---------- ASCII 图示 ---------- */
+  .diagram{
+    background:var(--bg-soft);
+    border:1px solid var(--line);
+    border-radius:var(--radius);
+    padding:16px 18px;margin:0 0 18px;
+    overflow-x:auto;
+  }
+  .diagram .cap{
+    display:block;font-size:12.5px;color:var(--text-3);
+    margin-bottom:10px;letter-spacing:.02em;
+  }
+  .diagram pre{
+    background:none;color:#343a46;padding:0;
+    font-size:12.8px;line-height:1.65;
+  }
+  .diagram pre .hl{color:var(--accent);font-weight:700;}
+  .diagram pre .hl-g{color:var(--green);font-weight:700;}
+  .diagram pre .hl-b{color:var(--blue);font-weight:700;}
+  .diagram pre .mut{color:var(--text-3);}
+
+  /* ---------- 列表 ---------- */
+  ul,ol{margin:0 0 16px;padding-left:24px;}
+  li{margin:5px 0;}
+  li>ul,li>ol{margin:5px 0;}
+  ul li::marker{color:var(--accent);}
+  ol li::marker{color:var(--accent);font-weight:600;}
+
+  /* ---------- 表格 ---------- */
+  .tbl-wrap{overflow-x:auto;margin:0 0 20px;}
+  table{
+    width:100%;border-collapse:collapse;font-size:14px;
+    border:1px solid var(--line-2);border-radius:var(--radius);
+    overflow:hidden;
+  }
+  thead th{
+    background:var(--bg-soft);font-weight:700;
+    text-align:left;padding:10px 14px;
+    border-bottom:1px solid var(--line-2);
+    color:var(--text);font-size:13.5px;
+  }
+  td{
+    padding:9px 14px;border-bottom:1px solid var(--line);
+    color:var(--text-2);vertical-align:top;
+  }
+  tbody tr:last-child td{border-bottom:none;}
+  tbody tr:hover{background:#fafbfd;}
+
+  /* ---------- 提示框 ---------- */
+  .box{
+    border-radius:var(--radius);
+    padding:14px 18px;margin:0 0 18px;
+    font-size:14.5px;line-height:1.75;
+  }
+  .box .box-title{
+    font-weight:700;font-size:13.5px;
+    display:block;margin-bottom:6px;letter-spacing:.02em;
+  }
+  .box p:last-child{margin-bottom:0;}
+  .box.tip{background:#eef6ff;border-left:3px solid var(--blue);}
+  .box.tip .box-title{color:var(--blue);}
+  .box.warn{background:#fff8ec;border-left:3px solid var(--amber);}
+  .box.warn .box-title{color:var(--amber);}
+  .box.key{background:#f1f8f4;border-left:3px solid var(--green);}
+  .box.key .box-title{color:var(--green);}
+  .box.danger{background:var(--accent-soft);border-left:3px solid var(--accent);}
+  .box.danger .box-title{color:var(--accent);}
+
+  /* ---------- 小结 ---------- */
+  .summary{
+    background:linear-gradient(180deg,#fbfcfd,#f5f7fa);
+    border:1px solid var(--line-2);
+    border-radius:var(--radius);
+    padding:20px 24px;margin:30px 0 0;
+  }
+  .summary h3{margin-top:0;}
+  .summary ul{margin-bottom:0;}
+
+  /* ---------- 流程步骤 ---------- */
+  .steps{counter-reset:st;list-style:none;padding:0;margin:0 0 18px;}
+  .steps li{
+    counter-increment:st;position:relative;
+    padding:10px 0 10px 42px;
+    border-bottom:1px dashed var(--line);
+  }
+  .steps li:last-child{border-bottom:none;}
+  .steps li::before{
+    content:counter(st);
+    position:absolute;left:0;top:11px;
+    width:24px;height:24px;border-radius:50%;
+    background:var(--accent-soft);color:var(--accent);
+    font-size:12px;font-weight:700;
+    display:flex;align-items:center;justify-content:center;
+  }
+  .steps li b{color:var(--text);}
+
+  /* ---------- 页脚 ---------- */
+  .foot{
+    margin-top:60px;padding-top:22px;
+    border-top:1px solid var(--line);
+    font-size:13px;color:var(--text-3);
+    display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px;
+  }
+
+  /* ---------- 返回顶部 ---------- */
+  #toTop{
+    position:fixed;right:28px;bottom:28px;
+    width:42px;height:42px;border-radius:50%;
+    border:1px solid var(--line-2);background:#fff;
+    color:var(--text-2);cursor:pointer;
+    box-shadow:0 4px 14px rgba(0,0,0,.08);
+    font-size:16px;display:none;
+    align-items:center;justify-content:center;
+    transition:transform .15s,color .15s;
+  }
+  #toTop:hover{transform:translateY(-2px);color:var(--accent);}
+  #toTop.show{display:flex;}
+
+  /* ---------- 响应式 ---------- */
+  @media (max-width:1080px){
+    .sidebar{display:none;}
+    .content{max-width:none;}
+    .layout{padding:24px 18px 80px;}
+  }
+  @media (max-width:640px){
+    body{font-size:15px;}
+    .article-head h1{font-size:24px;}
+    h2{font-size:20px;}
+    pre{font-size:12px;padding:14px;}
+    .diagram pre{font-size:11.5px;}
+  }
+  @media print{
+    .sidebar,.topbar,#toTop{display:none;}
+    .layout{display:block;padding:0;}
+    .code-wrap,.diagram{break-inside:avoid;}
+  }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <span class="tag">数据结构</span>
+  <span>B-Tree · C++ 模板实现</span>
+</div>
+
+<div class="layout">
+
+  <!-- ============ 侧边目录 ============ -->
+  <nav class="sidebar">
+    <h4>目录</h4>
+    <ol>
+      <li><a href="#s1">常见搜索结构对比</a></li>
+      <li><a href="#s2">B 树的定义与节点设计</a></li>
+      <li><a href="#s3">查找：Find 的分裂预留设计</a></li>
+      <li><a href="#s4">插入：从 InsertKey 到向上分裂</a></li>
+      <li><a href="#s5">分裂的完整推演（M=3）</a></li>
+      <li><a href="#s6">删除的难点：underflow</a></li>
+      <li><a href="#s7">删除第 1 步：非叶子转叶子</a></li>
+      <li><a href="#s8">删除第 2 步：借位与合并</a></li>
+      <li><a href="#s9">删除第 3 步：根降高度</a></li>
+      <li><a href="#s10">完整测试与运行结果</a></li>
+      <li><a href="#s11">复杂度与踩坑总结</a></li>
+      <li><a href="#s12">B+ 树</a></li>
+      <li><a href="#s13">B* 树</a></li>
+      <li><a href="#s14">B / B+ / B* 三者对比</a></li>
+      <li><a href="#s15">B 树的应用：MySQL 索引</a></li>
+    </ol>
+  </nav>
+
+  <!-- ============ 正文 ============ -->
+  <main class="content">
+
+    <header class="article-head">
+      <h1>B树（B-Tree）的原理与 C++ 完整实现 —— 从插入分裂到删除借位合并</h1>
+      <div class="meta">
+        <span>📅 2026-09-15</span>
+        <span>🏷️ 数据结构 / 算法 / C++</span>
+        <span>⏱️ 约 25 分钟阅读</span>
+      </div>
+
+      <div class="abstract">
+        <p><strong>摘要：</strong>B 树是一种多路平衡搜索树，也是 MySQL InnoDB 索引的底层结构。本文直接从代码出发，把一棵 M 阶 B 树的<strong>节点设计、查找、插入（含向上分裂）、删除（含借位与合并）</strong>完整实现一遍，再对比 <strong>B+ 树</strong>和 <strong>B* 树</strong>的差异与各自的分裂策略，最后落到 MySQL 索引的实际应用。</p>
+        <p>全文以 <code>M = 3</code> 为主线，包含三个最容易写错的地方：<strong>为什么节点要多开一个 key 的空间</strong>、<strong>分裂时孩子指针如何过继</strong>、<strong>删除后 underflow 的三种修复手段</strong>。代码基于模板实现，可直接编译运行。后半篇进入 <strong>B+ 树、B* 树</strong>与 MySQL 索引，以了解为主。</p>
+      </div>
+    </header>
+
+    <!-- ================= 1 ================= -->
+    <h2 id="s1">1：为什么数据量大时，二叉树和哈希都不行</h2>
+
+    <p>先把常见的搜索结构摆在一起看：</p>
+
+    <div class="tbl-wrap">
+      <table>
+        <thead>
+          <tr><th>结构</th><th>数据格式要求</th><th>时间复杂度</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>顺序查找</td><td>无要求</td><td><code>O(N)</code></td></tr>
+          <tr><td>二分查找</td><td>有序</td><td><code>O(log₂N)</code></td></tr>
+          <tr><td>二叉搜索树</td><td>无要求</td><td><code>O(N)</code></td></tr>
+          <tr><td>二叉平衡树（AVL / 红黑树）</td><td>无要求</td><td><code>O(log₂N)</code></td></tr>
+          <tr><td>哈希</td><td>无要求</td><td><code>O(1)</code></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p>这些结构有一个共同前提：<strong>数据量不大，可以一次性装进内存</strong>。</p>
+
+    <p>一旦数据量变到 100G 这种级别，内存装不下了，就<strong>只能放到磁盘上</strong>。这时候上面这张表的复杂度就全部失效了 —— 因为它们算的都是"内存里的比较次数"，而磁盘场景下真正贵的是 <strong>磁盘 I/O 次数</strong>。</p>
+
+    <h3>1.1：二叉平衡树的缺陷</h3>
+
+    <p>平衡二叉树的高度是 <code>log₂N</code>，这个查找次数在内存里很快。但数据在磁盘上时：</p>
+
+    <div class="diagram">
+      <span class="cap">log₂N 次磁盘访问是不可接受的</span>
+<pre>数据在内存：log₂N 次比较 ≈ 几十纳秒 × 30 ≈ <span class="hl-g">微秒级，没问题</span>
+
+数据在磁盘：树高多少层，就要读多少次盘（每层读一个节点）
+   N = 100G 数据，树高 ≈ 37 层
+   → 37 次随机磁盘 I/O × 约 10ms = <span class="hl">0.37 秒 / 次查找</span>
+   → 每秒只能查 3 次，完全不可用</pre>
+    </div>
+
+    <h3>1.2：哈希表的缺陷</h3>
+
+    <p>哈希表效率是 <code>O(1)</code>，但有两个致命问题：</p>
+
+    <ol>
+      <li><strong>极端场景下冲突严重</strong>：某个位置冲突很多时，查找退化成链表遍历，访问次数剧增。</li>
+      <li><strong>不支持范围查询</strong>：哈希是散列的，<code>WHERE id BETWEEN 10 AND 100</code> 这类查询完全无能为力。</li>
+    </ol>
+
+    <h3>1.3：怎么加速？</h3>
+
+    <p>两条路：</p>
+
+    <ol>
+      <li><strong>提高 IO 速度</strong>。SSD 比机械硬盘快不少，但<strong>没有本质性的提升</strong> —— 还是比内存慢几个数量级，而且成本高。</li>
+      <li><strong>降低树的高度 → 多叉平衡树</strong>。这才是根本解法：把节点做"胖"，一个节点塞满一个磁盘块，<strong>树高直接砍下来</strong>。</li>
+    </ol>
+
+    <div class="diagram">
+      <span class="cap">降低树高 = 减少磁盘 I/O（同样存 10 亿条数据）</span>
+<pre>二叉树（每节点 1 个 key，2 个孩子）
+   10 亿 ≈ 2^30  →  树高 ≈ 30 层
+   最坏 30 次磁盘 I/O
+   <span class="mut">更糟的是：每次 I/O 只读到 1 个节点，块里其余空间全浪费</span>
+
+B 树（M = 1000，每节点 999 个 key，1000 个孩子）
+   第 1 层：1 个节点      →      999 个 key
+   第 2 层：1000 个节点   →    ~10^6 个 key
+   第 3 层：10^6 个节点   →    ~10^9 个 key  ✓
+   <span class="hl">树高只有 3 层  →  最多 3 次磁盘 I/O</span>
+   <span class="hl-g">每次 I/O 读满一个块，1000 个 key 全用上了</span></pre>
+    </div>
+
+    <div class="box key">
+      <span class="box-title">B 树的复杂度必须放在"内存 + 磁盘"两级存储模型下理解</span>
+      <p>只看比较次数的渐进阶，B 树 <code>O(M·log_M N)</code> 确实"不如"平衡树的 <code>O(log₂N)</code>。但真实场景里<strong>一次磁盘 I/O ≈ 十万次内存访问</strong>。</p>
+      <p>节点内那 M 次比较是<strong>内存操作，几乎免费</strong>；而树高 <code>log_M N</code> 才是磁盘 I/O 次数。用"多比较几百次"换"磁盘 I/O 少十几倍"，这笔买卖极其划算。</p>
+    </div>
+
+    <p>本文实现的约定（先约定清楚，后面不歧义）：</p>
+
+    <div class="tbl-wrap">
+      <table>
+        <thead>
+          <tr><th>符号</th><th>含义</th><th>本文取值</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><code>M</code></td><td>B 树的阶，即一个节点<strong>最多</strong>有多少个孩子</td><td>3</td></tr>
+          <tr><td><code>_n</code></td><td>节点中实际存储的关键字个数</td><td>1 ~ M-1（根可以是 1）</td></tr>
+          <tr><td><code>_keys[]</code></td><td>关键字数组</td><td>长度 M</td></tr>
+          <tr><td><code>_subs[]</code></td><td>孩子指针数组</td><td>长度 M+1</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="box tip">
+      <span class="box-title">读者定位</span>
+      <p>本文假设你已知道二叉树、中序遍历、模板的基本用法。不需要预先了解 B 树 —— 每个结构变化都会配一张 ASCII 图。</p>
+    </div>
+
+    <!-- ================= 2 ================= -->
+    <h2 id="s2">2：B 树的定义与节点设计</h2>
+
+    <h3>2.1：M 阶 B 树的严格定义</h3>
+
+    <p>一棵 M 阶 B 树满足以下性质：</p>
+
+    <ol>
+      <li>每个节点<strong>最多</strong>有 <code>M</code> 个孩子，<code>M-1</code> 个关键字</li>
+      <li>根节点至少有 2 个孩子（除非它同时是叶子）</li>
+      <li>除根节点外，每个节点<strong>至少</strong>有 <code>⌈M/2⌉</code> 个孩子（<code>⌈M/2⌉-1</code> 个关键字）</li>
+      <li>所有叶子节点都在<strong>同一层</strong>（这是"平衡"的含义）</li>
+      <li>节点内关键字<strong>升序排列</strong>，且 <code>key[i]</code> 的左子树所有 key 都小于它，右子树都大于它</li>
+    </ol>
+
+    <div class="box key">
+      <span class="box-title">第 3 条是删除算法的全部难度来源</span>
+      <p>"至少 <code>⌈M/2⌉-1</code> 个 key"这条下界约束，保证了树的形态不会退化。删除时一旦跌破这条线，就必须启动修复流程 —— 这就是后面要讲的 <strong>underflow 处理</strong>。</p>
+    </div>
+
+    <h3>2.2：节点结构体 —— 多开一格的设计</h3>
+
+    <div class="code-wrap">
+      <div class="code-head">
+        <span class="dots"><i></i><i></i><i></i></span>
+        <span class="fname">BTree.hpp</span>
+        <span class="lang">C++</span>
+      </div>
+<pre><code><span class="k">template</span><span class="p">&lt;</span><span class="k">typename</span> <span class="t">K</span><span class="p">,</span> <span class="t">size_t</span> <span class="t">M</span><span class="p">&gt;</span>
+<span class="k">struct</span> <span class="t">BTreeNode</span> <span class="p">{</span>
+	<span class="c">/*/K _keys[M - 1];
+	BTreeNode&lt;K, M&gt;* _subs[M];*/</span>
+
+	<span class="c">//为了方便插入以后在分裂,可以多给一个空间</span>
+	<span class="t">K</span> <span class="f">_keys</span><span class="p">[</span><span class="t">M</span><span class="p">];</span>                 <span class="c">//存M个key</span>
+	<span class="t">BTreeNode</span><span class="p">&lt;</span><span class="t">K</span><span class="p">,</span> <span class="t">M</span><span class="p">&gt;*</span> <span class="f">_subs</span><span class="p">[</span><span class="t">M</span> <span class="o">+</span> <span class="n">1</span><span class="p">];</span> <span class="c">//存M+1个孩子指针</span>
+	<span class="t">BTreeNode</span><span class="p">&lt;</span><span class="t">K</span><span class="p">,</span> <span class="t">M</span><span class="p">&gt;*</span> <span class="f">_parent</span><span class="p">;</span>    <span class="c">//存父指针(方便向上分裂)</span>
+	<span class="t">size_t</span> <span class="f">_n</span><span class="p">;</span>                    <span class="c">//记录实际存储多个关键字</span>
+
+	<span class="f">BTreeNode</span><span class="p">()</span>
+	<span class="p">{</span>
+		<span class="k">for</span> <span class="p">(</span><span class="t">size_t</span> <span class="f">i</span> <span class="o">=</span> <span class="n">0</span><span class="p">;</span> <span class="f">i</span> <span class="o">&lt;</span> <span class="t">M</span><span class="p">;</span> <span class="f">i</span><span class="o">++</span><span class="p">)</span>
+		<span class="p">{</span>
+			<span class="f">_keys</span><span class="p">[</span><span class="f">i</span><span class="p">]</span> <span class="o">=</span> <span class="t">K</span><span class="p">();</span>
+			<span class="f">_subs</span><span class="p">[</span><span class="f">i</span><span class="p">]</span> <span class="o">=</span> <span class="k">nullptr</span><span class="p">;</span>
+		<span class="p">}</span>
+		<span class="f">_subs</span><span class="p">[</span><span class="t">M</span><span class="p">]</span> <span class="o">=</span> <span class="k">nullptr</span><span class="p">;</span>
+		<span class="f">_parent</span> <span class="o">=</span> <span class="k">nullptr</span><span class="p">;</span>
+		<span class="f">_n</span> <span class="o">=</span> <span class="n">0</span><span class="p">;</span>
+	<span class="p">}</span>
+<span class="p">};</span>
+</code></pre>
+    </div>
+
+    <h4>为什么 key 数组要开 M 而不是 M-1？</h4>
+
+    <p>上面注释掉的 <code>_keys[M-1]</code> 才是"教科书上"的写法 —— 每个节点最多 M-1 个 key，开 M-1 个位置刚好。但实际写代码时这样会非常别扭。</p>
+
+    <p>原因在插入流程：<strong>我们都是先无条件插入，插完再判断是否溢出</strong>。考虑 M=3 的情况，节点里已经有 2 个 key（已满）：</p>
+
+    <div class="diagram">
+      <span class="cap">插入前的"已满"状态与即将发生的临时溢出</span>
+<pre>已满节点（M=3，理论上限 2 个 key）：
+        <span class="hl">[ 10 | 20 ]</span>    _n = 2  ← 满了
+
+现在插入 25。如果数组只开 M-1 = 2 格：
+        [ 10 | 20 ]  <span class="hl-g">[25]</span>  ← <span class="hl">越界！</span>没有第 3 格可写
+
+如果数组开 M = 3 格：
+        [ 10 | 20 | 25 ]   _n = 3  ← 临时溢出，<span class="hl-g">合法</span>
+                  ↑
+             这一步之后立刻触发分裂，30 提上去，25 留在右边
+
+<span class="hl-g">所以开 M 格是为了让"先插入、后分裂"的流程成立。</span>
+数组里最多只会短暂出现 M 个 key，分裂完立刻回到 M-1 以内。</pre>
+    </div>
+
+    <div class="box warn">
+      <span class="box-title">注意：这只是"多开一格"的惯用技巧</span>
+      <p>它不是 B 树的定义，而是<strong>实现上的取舍</strong>。代价是每个节点浪费一个 key 的空间（对磁盘场景可忽略），换来的是插入/删除代码里少了一大堆边界判断。</p>
+    </div>
+
+    <h4>_parent 指针是必须的吗？</h4>
+
+    <p>不是必须，但强烈建议加上。<strong>向上分裂</strong>需要不断向上层插入，<strong>删除修复</strong>需要找兄弟节点 —— 这两个操作都天然是"往上走"的。有了 <code>_parent</code>，代码是循环；没有 <code>_parent</code>，就得维护一个从根到叶的栈，每次插入/删除都要重新搜索一遍路径。</p>
+
+    <h3>2.3：BTree 类骨架</h3>
+
+    <div class="code-wrap">
+      <div class="code-head">
+        <span class="dots"><i></i><i></i><i></i></span>
+        <span class="fname">BTree.hpp</span>
+        <span class="lang">C++</span>
+      </div>
+<pre><code><span class="c">//数据存在磁盘，K是磁盘地址</span>
+<span class="k">template</span><span class="p">&lt;</span><span class="k">typename</span> <span class="t">K</span><span class="p">,</span> <span class="t">size_t</span> <span class="t">M</span><span class="p">&gt;</span>
+<span class="k">class</span> <span class="t">BTree</span> <span class="p">{</span>
+	<span class="k">using</span> <span class="t">Node</span> <span class="o">=</span> <span class="t">BTreeNode</span><span class="p">&lt;</span><span class="t">K</span><span class="p">,</span> <span class="t">M</span><span class="p">&gt;;</span>
+<span class="k">public:</span>
+	<span class="c">// ... 对外接口：Find / Insert / Remove / InOrder</span>
+<span class="k">private:</span>
+	<span class="t">Node</span><span class="o">*</span> <span class="f">_root</span> <span class="o">=</span> <span class="k">nullptr</span><span class="p">;</span>
+<span class="p">};</span>
+</code></pre>
+    </div>
+
+    <div class="box tip">
+      <span class="box-title">关于 <code>using Node = BTreeNode&lt;K, M&gt;</code></span>
+      <p>B 树的代码里 <code>Node*</code> 出现频率极高，写全称会让签名长得没法看。先起个别名，后面所有函数签名都清爽很多。</p>
+    </div>
+
+    <!-- ================= 3 ================= -->
+    <h2 id="s3">3：查找：Find 的分裂预留设计</h2>
+
+    <h3>3.1：算法思路</h3>
+
+    <p>B 树的查找和二叉搜索树思路一致，只是每个节点内部要先用顺序扫描定位到"正确的孩子"：</p>
+
+    <ol class="steps">
+      <li><b>在当前节点内线性扫描</b>，找到第一个 <code>key &gt;= _keys[i]</code> 的位置 <code>i</code>。</li>
+      <li><b>命中</b>：如果 <code>key == _keys[i]</code>，直接返回 <code>{当前节点, i}</code>。</li>
+      <li><b>未命中</b>：说明 key 在 <code>_subs[i]</code> 这棵子树里，往下跳。</li>
+      <li>走到 <code>nullptr</code> 还没找到，返回代表"失败"的信号。</li>
+    </ol>
+
+    <h3>3.2：代码实现</h3>
+
+    <div class="code-wrap">
+      <div class="code-head">
+        <span class="dots"><i></i><i></i><i></i></span>
+        <span class="fname">BTree.hpp</span>
+        <span class="lang">C++</span>
+      </div>
+<pre><code><span class="c">//返回当前的树指针+值</span>
+<span class="t">pair</span><span class="p">&lt;</span><span class="t">Node</span><span class="o">*</span><span class="p">,</span> <span class="t">int</span><span class="p">&gt;</span> <span class="f">Find</span><span class="p">(</span><span class="k">const</span> <span class="t">K</span><span class="o">&amp;</span> <span class="f">key</span><span class="p">)</span>
+<span class="p">{</span>
+	<span class="t">Node</span><span class="o">*</span> <span class="f">parent</span> <span class="o">=</span> <span class="k">nullptr</span><span class="p">;</span>
+	<span class="t">Node</span><span class="o">*</span> <span class="f">cur</span> <span class="o">=</span> <span class="f">_root</span><span class="p">;</span>
+	<span class="k">while</span> <span class="p">(</span><span class="f">cur</span><span class="p">)</span> <span class="p">{</span>
+		<span class="t">size_t</span> <span class="f">i</span> <span class="o">=</span> <span class="n">0</span><span class="p">;</span>
+		<span class="c">//找第一个&gt;=key的位置</span>
+		<span class="k">while</span> <span class="p">(</span><span class="f">i</span> <span class="o">&lt;</span> <span class="f">cur</span><span class="o">-&gt;</span><span class="f">_n</span> <span class="o">&amp;&amp;</span> <span class="f">key</span> <span class="o">&gt;</span> <span class="f">cur</span><span class="o">-&gt;</span><span class="f">_keys</span><span class="p">[</span><span class="f">i</span><span class="p">])</span>
+		<span class="p">{</span>
+			<span class="f">i</span><span class="o">++</span><span class="p">;</span>
+		<span class="p">}</span>
+
+		<span class="c">//命中</span>
+		<span class="k">if</span> <span class="p">(</span><span class="f">i</span> <span class="o">&lt;</span> <span class="f">cur</span><span class="o">-&gt;</span><span class="f">_n</span> <span class="o">&amp;&amp;</span> <span class="f">key</span> <span class="o">==</span> <span class="f">cur</span><span class="o">-&gt;</span><span class="f">_keys</span><span class="p">[</span><span class="f">i</span><span class="p">])</span>
+		<span class="p">{</span>
+			<span class="k">return</span> <span class="p">{</span> <span class="f">cur</span><span class="p">,</span> <span class="p">(</span><span class="t">int</span><span class="p">)</span><span class="f">i</span> <span class="p">};</span>
+		<span class="p">}</span>
+
+		<span class="c">//没有命中,往孩子去跳</span>
+		<span class="f">parent</span> <span class="o">=</span> <span class="f">cur</span><span class="p">;</span>
+		<span class="f">cur</span> <span class="o">=</span> <span class="f">cur</span><span class="o">-&gt;</span><span class="f">_subs</span><span class="p">[</span><span class="f">i</span><span class="p">];</span>
+	<span class="p">}</span>
+
+	<span class="k">return</span> <span class="p">{</span> <span class="f">parent</span><span class="p">,</span> <span class="o">-</span><span class="n">1</span> <span class="p">};</span>
+<span class="p">}</span>
+</code></pre>
+    </div>
+
+    <h3>3.3：返回值 <code>pair&lt;Node*, int&gt;</code> 的巧妙之处</h3>
+
+    <p>这是整个实现里我最喜欢的一个设计。<code>Find</code> 不只是"查找"，它还<strong>顺便帮插入和删除完成了定位工作</strong>：</p>
+
+    <div class="tbl-wrap">
+      <table>
+        <thead>
+          <tr><th>返回值</th><th>含义</th><th>调用者怎么用</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>{cur, i&gt;=0}</code></td>
+            <td>命中，key 在 <code>cur</code> 的第 <code>i</code> 个位置</td>
+            <td><code>Insert</code> 判重返回 false；<code>Remove</code> 从这里开始删</td>
+          </tr>
+          <tr>
+            <td><code>{parent, -1}</code></td>
+            <td>未命中，<code>parent</code> 是<strong>查找路径上最后一个非空节点</strong>，也就是 key 应该插入的那个叶子</td>
+            <td><code>Insert</code> 直接往 <code>parent</code> 里插，<strong>不需要再搜一遍</strong></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="box key">
+      <span class="box-title">关键点：失败时返回的 parent 一定是叶子</span>
+      <p>因为循环退出条件是 <code>cur == nullptr</code>，此时 <code>parent</code> 是刚才那个 <code>cur</code> —— 它的孩子指针是空的，也就是叶子节点。而 B 树的插入<strong>永远发生在叶子</strong>，正好对上。</p>
+    </div>
+
+    <div class="diagram">
+      <span class="cap">Find(26) 的完整路径（M=3）</span>
+<pre>            [ 30 | 60 ]
+           /     |     \
+      [10|20]  [40|50]  [70|80]
+
+第 1 层 cur=[30|60]：26 &gt; 30? 否 → i=0，不是 30
+        parent=[30|60]，cur = _subs[0] = [10|20]
+
+第 2 层 cur=[10|20]：26 &gt; 10 是 → i=1；26 &gt; 20 是 → i=2
+        i == _n(2)，出循环；26 == _keys[2]? <span class="hl">越界，不算</span>
+        parent=[10|20]，cur = _subs[2] = nullptr
+
+循环结束 → return { [10|20], -1 }
+<span class="hl-g">插入 26 只需要落到 [10|20] 这个叶子，位置在 20 后面</span></pre>
+    </div>
+
+    <!-- ================= 4 ================= -->
+    <h2 id="s4">4：插入：从 InsertKey 到向上分裂</h2>
+
+    <h3>4.1：InsertKey —— 节点内部的插入</h3>
+
+    <p>节点内插入的本质是"<strong>有序数组的插入</strong>"：从后往前找位置，比新 key 大的元素统统右移一格，腾出空位。</p>
+
+    <div class="code-wrap">
+      <div class="code-head">
+        <span class="dots"><i></i><i></i><i></i></span>
+        <span class="fname">BTree.hpp</span>
+        <span class="lang">C++</span>
+      </div>
+<pre><code><span class="c">//往节点里面插入key和child</span>
+<span class="c">/*叶子节点插入时 child 是 nullptr。但分裂的时候，要把 "中间 key + 分裂出的新节点" 一起插进父节点，这时候 child 就是新节点。*/</span>
+<span class="k">void</span> <span class="f">InsertKey</span><span class="p">(</span><span class="t">Node</span><span class="o">*</span> <span class="f">node</span><span class="p">,</span> <span class="k">const</span> <span class="t">K</span><span class="o">&amp;</span> <span class="f">key</span><span class="p">,</span> <span class="t">Node</span><span class="o">*</span> <span class="f">child</span><span class="p">)</span>
+<span class="p">{</span>
+	<span class="c">//从左往右找插入位置,比key大的都往右移</span>
+	<span class="t">int</span> <span class="f">end</span> <span class="o">=</span> <span class="f">node</span><span class="o">-&gt;</span><span class="f">_n</span> <span class="o">-</span> <span class="n">1</span><span class="p">;</span>
+	<span class="k">while</span> <span class="p">(</span><span class="f">end</span> <span class="o">&gt;=</span> <span class="n">0</span> <span class="o">&amp;&amp;</span> <span class="f">key</span> <span class="o">&lt;</span> <span class="f">node</span><span class="o">-&gt;</span><span class="f">_keys</span><span class="p">[</span><span class="f">end</span><span class="p">])</span>
+	<span class="p">{</span>
+		<span class="f">node</span><span class="o">-&gt;</span><span class="f">_keys</span><span class="p">[</span><span class="f">end</span> <span class="o">+</span> <span class="n">1</span><span class="p">]</span> <span class="o">=</span> <span class="f">node</span><span class="o">-&gt;</span><span class="f">_keys</span><span class="p">[</span><span class="f">end</span><span class="p">];</span>
+		<span class="f">node</span><span class="o">-&gt;</span><span class="f">_subs</span><span class="p">[</span><span class="f">end</span> <span class="o">+</span> <span class="n">2</span><span class="p">]</span> <span class="o">=</span> <span class="f">node</span><span class="o">-&gt;</span><span class="f">_subs</span><span class="p">[</span><span class="f">end</span> <span class="o">+</span> <span class="n">1</span><span class="p">];</span>
+		<span class="f">end</span><span class="o">--</span><span class="p">;</span>
+	<span class="p">}</span>
+	<span class="c">//插入</span>
+	<span class="f">node</span><span class="o">-&gt;</span><span class="f">_keys</span><span class="p">[</span><span class="f">end</span> <span class="o">+</span> <span class="n">1</span><span class="p">]</span> <span class="o">=</span> <span class="f">key</span><span class="p">;</span>
+	<span class="f">node</span><span class="o">-&gt;</span><span class="f">_subs</span><span class="p">[</span><span class="f">end</span> <span class="o">+</span> <span class="n">2</span><span class="p">]</span> <span class="o">=</span> <span class="f">child</span><span class="p">;</span>
+	<span class="f">node</span><span class="o">-&gt;</span><span class="f">_n</span><span class="o">++</span><span class="p">;</span>
+<span class="p">}</span>
+</code></pre>
+    </div>
+
+    <h4>下标为什么是 end+1 和 end+2？</h4>
+
+    <p>因为 key 和 child 之间是<strong>错位对应</strong>的：<code>_keys[i]</code> 的<strong>右</strong>孩子是 <code>_subs[i+1]</code>。当 key 被插到 <code>end+1</code> 时，它的右孩子自然就在 <code>end+2</code>。</p>
+
+    <div class="diagram">
+      <span class="cap">key 与 child 的错位对应关系（M=3，已插满 2 个 key）</span>
+<pre>_keys:   [ 0 ]    [ 1 ]    [ 2 ]
+         10       20       (空)
+
+_subs:   [ 0 ]   [ 1 ]    [ 2 ]    [ 3 ]
+         c0      c1       c2       c3
+
+<span class="hl">对应关系：</span>
+        c0 &lt; 10 &lt; c1 &lt; 20 &lt; c2 &lt; ...
+
+插入 15 的过程：
+   end=1: 15 &lt; 20 → 20 右移到 _keys[2]，c2 右移到 _subs[3]，end=0
+   end=0: 15 &lt; 10? 否 → 停
+   写入：_keys[1] = 15，_subs[2] = child
+
+结果：
+_keys:   [ 0 ]    [ 1 ]    [ 2 ]
+         10       <span class="hl-g">15</span>       20
+_subs:   [ 0 ]   [ 1 ]    [ 2 ]    [ 3 ]
+         c0      c1       <span class="hl-g">child</span>    c2
+                            ↑
+                  15 的右孩子落在 end+2 = 2</pre>
+    </div>
+
+    <div class="box warn">
+      <span class="box-title">易错点：循环条件用 <code>key &lt; _keys[end]</code> 而不是 <code>&lt;=</code></span>
+      <p>用 <code>&lt;</code>，相等时停下，新 key 落在旧 key 的<strong>右边</strong>；用 <code>&lt;=</code> 则落在左边。由于 <code>Insert</code> 已经用 <code>Find</code> 判过重了，这里不会真的遇到相等，两种写法的结果都一样 —— 但保持一致能避免以后改代码时出坑。</p>
+    </div>
+
+    <h3>4.2：Insert 的整体流程</h3>
+
+    <div class="diagram">
+      <span class="cap">Insert 流程图</span>
+<pre>Insert(key)
+  │
+  ├─ ① 树空？ → 建根节点，直接放 key，返回 true
+  │
+  ├─ ② Find(key)
+  │     ├─ 已存在 → 不允许重复，<span class="hl">返回 false</span>
+  │     └─ 不存在 → 拿到要插入的叶子节点 parent
+  │
+  └─ ③ 进入循环：InsertKey(parent, newkey, child)
+        │
+        ├─ parent-&gt;_n &lt; M  → 没满，插入结束，<span class="hl-g">返回 true</span>
+        │
+        └─ parent-&gt;_n == M → 满了，<span class="hl">分裂</span>
+              │
+              ├─ 新根情况（parent 没有父亲）→ 建新根，break
+              └─ 有父亲 → newkey = 中间key
+                          child  = 新兄弟
+                          parent = parent-&gt;_parent
+                          ↑ 回到循环开头，往上一层插</pre>
+    </div>
+
+    <div class="code-wrap">
+      <div class="code-head">
+        <span class="dots"><i></i><i></i><i></i></span>
+        <span class="fname">BTree.hpp</span>
+        <span class="lang">C++</span>
+      </div>
+<pre><code><span class="k">bool</span> <span class="f">Insert</span><span class="p">(</span><span class="k">const</span> <span class="t">K</span><span class="o">&amp;</span> <span class="f">key</span><span class="p">)</span>
+<span class="p">{</span>
+	<span class="c">//1树空</span>
+	<span class="k">if</span> <span class="p">(</span><span class="f">_root</span> <span class="o">==</span> <span class="k">nullptr</span><span class="p">)</span>
+	<span class="p">{</span>
+		<span class="f">_root</span> <span class="o">=</span> <span class="k">new</span> <span class="t">Node</span><span class="p">;</span>
+		<span class="f">_root</span><span class="o">-&gt;</span><span class="f">_keys</span><span class="p">[</span><span class="n">0</span><span class="p">]</span> <span class="o">=</span> <span class="f">key</span><span class="p">;</span>
+		<span class="f">_root</span><span class="o">-&gt;</span><span class="f">_n</span> <span class="o">=</span> <span class="n">1</span><span class="p">;</span>
+		<span class="k">return</span> <span class="k">true</span><span class="p">;</span>
+	<span class="p">}</span>
+
+	<span class="c">//key已经存在,不允许插入</span>
+	<span class="t">pair</span><span class="p">&lt;</span><span class="t">Node</span><span class="o">*</span><span class="p">,</span> <span class="t">int</span><span class="p">&gt;</span> <span class="f">ret</span> <span class="o">=</span> <span class="f">Find</span><span class="p">(</span><span class="f">key</span><span class="p">);</span>
+	<span class="k">if</span> <span class="p">(</span><span class="f">ret</span><span class="p">.</span><span class="f">second</span> <span class="o">&gt;=</span> <span class="n">0</span><span class="p">)</span>
+	<span class="p">{</span>
+		<span class="k">return</span> <span class="k">false</span><span class="p">;</span>
+	<span class="p">}</span>
+
+	<span class="c">//如果没有找到,find顺便带回要插入的那个叶子节点</span>
+	<span class="c">//循环每次往cur插入 ,newkey和child</span>
+	<span class="t">Node</span><span class="o">*</span> <span class="f">parent</span> <span class="o">=</span> <span class="f">ret</span><span class="p">.</span><span class="f">first</span><span class="p">;</span>
+	<span class="t">K</span> <span class="f">newkey</span> <span class="o">=</span> <span class="f">key</span><span class="p">;</span>
+	<span class="t">Node</span><span class="o">*</span> <span class="f">child</span> <span class="o">=</span> <span class="k">nullptr</span><span class="p">;</span>
+
+	<span class="k">while</span> <span class="p">(</span><span class="n">1</span><span class="p">)</span> <span class="p">{</span>
+		<span class="f">InsertKey</span><span class="p">(</span><span class="f">parent</span><span class="p">,</span> <span class="f">newkey</span><span class="p">,</span> <span class="f">child</span><span class="p">);</span>
+
+		<span class="c">//满了就要分裂</span>
+		<span class="c">//没有满,插入就结束</span>
+		<span class="k">if</span> <span class="p">(</span><span class="f">parent</span><span class="o">-&gt;</span><span class="f">_n</span> <span class="o">&lt;</span> <span class="t">M</span><span class="p">)</span>
+		<span class="p">{</span>
+			<span class="k">return</span> <span class="k">true</span><span class="p">;</span>
+		<span class="p">}</span>
+		<span class="k">else</span>
+		<span class="p">{</span>
+			<span class="c">/* ... 分裂逻辑，见下一节 ... */</span>
+		<span class="p">}</span>
+	<span class="p">}</span>
+	<span class="k">return</span> <span class="k">true</span><span class="p">;</span>
+<span class="p">}</span>
+</code></pre>
+    </div>
+
+    <div class="box key">
+      <span class="box-title">while(1) + 参数复用：向上分裂的精髓</span>
+      <p>循环里的三个变量 <code>parent / newkey / child</code> 被<strong>复用</strong>成"这次要往哪个节点插、插什么 key、带什么孩子"。分裂完一层后，它们被重新赋值指向上一层，循环再跑一遍 —— 整个向上传播的过程，用 5 行代码就写完了。</p>
+    </div>
+
+    <!-- ================= 5 ================= -->
+    <h2 id="s5">5：分裂的完整推演（M=3）</h2>
+
+    <h3>5.1：分裂的目标</h3>
+
+    <p>当一个节点插满了 M 个 key，它已经"过载"。分裂要做三件事：</p>
+
+    <ol>
+      <li>把中间的 key <code>_keys[M/2]</code> 提出来，<strong>交给父节点</strong>；</li>
+      <li>左半边留在原节点，右半边搬到一个<strong>新节点（兄弟）</strong>里；</li>
+      <li>所有被搬走的孩子指针，要把 <code>_parent</code> 改成新兄弟。</li>
+    </ol>
+
+    <div class="diagram">
+      <span class="cap">M=3 时的一次分裂</span>
+<pre>分裂前（满了，3 个 key）：
+              [ 10 | <span class="hl">20</span> | 30 ]
+             /     |      |     \
+            c0    c1     c2     c3
+
+分裂后：
+                  [ <span class="hl">20</span> ]          ← 中间的 key 往上提
+                 /      \
+            [ 10 ]      [ 30 ]     ← 左右各一个节点
+            /    \      /    \
+           c0    c1    c2    c3    ← 孩子跟着走，_parent 也要改</pre>
+    </div>
+
+    <h3>5.2：分裂代码</h3>
+
+    <div class="code-wrap">
+      <div class="code-head">
+        <span class="dots"><i></i><i></i><i></i></span>
+        <span class="fname">BTree.hpp</span>
+        <span class="lang">C++</span>
+      </div>
+<pre><code><span class="t">size_t</span> <span class="f">mid</span> <span class="o">=</span> <span class="t">M</span> <span class="o">/</span> <span class="n">2</span><span class="p">;</span><span class="c">//中间位置,M=3时mid = 1</span>
+
+<span class="c">//分裂一半[mid+1,M-1]给兄弟</span>
+<span class="c">//一:创建兄弟节点</span>
+<span class="t">Node</span><span class="o">*</span> <span class="f">brother</span> <span class="o">=</span> <span class="k">new</span> <span class="t">Node</span><span class="p">;</span>
+<span class="c">//二:把[mid+1,M-1]的key和对应的左孩子拷贝给brother</span>
+<span class="t">size_t</span> <span class="f">j</span> <span class="o">=</span> <span class="n">0</span><span class="p">;</span><span class="c">//兄弟节点写入的下标从0开始</span>
+<span class="k">for</span> <span class="p">(</span><span class="t">size_t</span> <span class="f">i</span> <span class="o">=</span> <span class="f">mid</span> <span class="o">+</span> <span class="n">1</span><span class="p">;</span> <span class="f">i</span> <span class="o">&lt;=</span> <span class="t">M</span> <span class="o">-</span> <span class="n">1</span><span class="p">;</span> <span class="f">i</span><span class="o">++</span><span class="p">)</span>
+<span class="p">{</span>
+	<span class="c">//key和key的左孩子</span>
+	<span class="f">brother</span><span class="o">-&gt;</span><span class="f">_keys</span><span class="p">[</span><span class="f">j</span><span class="p">]</span> <span class="o">=</span> <span class="f">parent</span><span class="o">-&gt;</span><span class="f">_keys</span><span class="p">[</span><span class="f">i</span><span class="p">];</span>
+	<span class="f">brother</span><span class="o">-&gt;</span><span class="f">_subs</span><span class="p">[</span><span class="f">j</span><span class="p">]</span> <span class="o">=</span> <span class="f">parent</span><span class="o">-&gt;</span><span class="f">_subs</span><span class="p">[</span><span class="f">i</span><span class="p">];</span>
+	<span class="k">if</span> <span class="p">(</span><span class="f">parent</span><span class="o">-&gt;</span><span class="f">_subs</span><span class="p">[</span><span class="f">i</span><span class="p">])</span>
+	<span class="p">{</span>
+		<span class="f">parent</span><span class="o">-&gt;</span><span class="f">_subs</span><span class="p">[</span><span class="f">i</span><span class="p">]</span><span class="o">-&gt;</span><span class="f">_parent</span> <span class="o">=</span> <span class="f">brother</span><span class="p">;</span>
+	<span class="p">}</span>
+	<span class="f">j</span><span class="o">++</span><span class="p">;</span>
+<span class="p">}</span>
+
+<span class="c">//还有最后一个右孩子拷给</span>
+<span class="f">brother</span><span class="o">-&gt;</span><span class="f">_subs</span><span class="p">[</span><span class="f">j</span><span class="p">]</span> <span class="o">=</span> <span class="f">parent</span><span class="o">-&gt;</span><span class="f">_subs</span><span class="p">[</span><span class="t">M</span><span class="p">];</span>
+<span class="k">if</span> <span class="p">(</span><span class="f">parent</span><span class="o">-&gt;</span><span class="f">_subs</span><span class="p">[</span><span class="t">M</span><span class="p">])</span>
+<span class="p">{</span>
+	<span class="f">parent</span><span class="o">-&gt;</span><span class="f">_subs</span><span class="p">[</span><span class="t">M</span><span class="p">]</span><span class="o">-&gt;</span><span class="f">_parent</span> <span class="o">=</span> <span class="f">brother</span><span class="p">;</span>
+<span class="p">}</span>
+
+<span class="f">brother</span><span class="o">-&gt;</span><span class="f">_n</span> <span class="o">=</span> <span class="f">j</span><span class="p">;</span>
+<span class="f">parent</span><span class="o">-&gt;</span><span class="f">_n</span> <span class="o">-=</span> <span class="p">(</span><span class="f">brother</span><span class="o">-&gt;</span><span class="f">_n</span> <span class="o">+</span> <span class="n">1</span><span class="p">);</span>
+</code></pre>
+    </div>
+
+    <h4>逐格追踪：M=3，[10|20|30] 的分裂</h4>
+
+    <div class="diagram">
+      <span class="cap">mid = 3/2 = 1，i 从 2 到 2，循环只跑一次</span>
+<pre>初始：
+   parent-&gt;_keys = [10 | 20 | 30]     parent-&gt;_n = 3
+   parent-&gt;_subs = [c0 | c1 | c2 | c3]
+   j = 0
+
+i = 2 那一轮：
+   brother-&gt;_keys[0] = parent-&gt;_keys[2] = <span class="hl-g">30</span>
+   brother-&gt;_subs[0] = parent-&gt;_subs[2] = c2
+   c2-&gt;_parent = brother
+   j → 1
+
+循环结束，补最后一个右孩子：
+   brother-&gt;_subs[1] = parent-&gt;_subs[3] = c3
+   c3-&gt;_parent = brother
+   <span class="hl">注意：这里用的是 parent-&gt;_subs[M]，即 _subs[3]</span>
+
+计数：
+   brother-&gt;_n = 1
+   parent-&gt;_n = 3 - (1 + 1) = <span class="hl-g">1</span>
+   <span class="mut">（减 brother-&gt;_n + 1，那个 +1 是被提走的中间 key）</span>
+
+最终：
+   parent  = [10]        _n = 1
+   brother = [30]        _n = 1
+   中间的 20 待提升
+   <span class="hl-g">parent 里 c2、c3 的位置虽然还残留旧值，但 _n=1 后已经不会再被访问</span></pre>
+    </div>
+
+    <div class="box warn">
+      <span class="box-title">两个容易写错的细节</span>
+      <p><strong>① 残留数据不用清。</strong><code>parent-&gt;_n</code> 已经减到 1，后面所有访问都以 <code>_n</code> 为界，越界位置的数据是"逻辑上不存在"的。代码里 <code>//parent-&gt;_keys[i] = K();</code> 被注释掉，就是这个意思 —— 清了更干净，但不清也没有 bug。</p>
+      <p><strong>② 别忘了改 _parent。</strong>搬走的孩子如果不改 <code>_parent</code>，删除时会从错误的父节点找兄弟，导致崩溃或死循环。这是最隐蔽的一个坑。</p>
+    </div>
+
+    <h3>5.3：两种分裂结果</h3>
+
+    <h4>情况 A：分裂的是根节点 → 树长高</h4>
+
+    <div class="code-wrap">
+      <div class="code-head">
+        <span class="dots"><i></i><i></i><i></i></span>
+        <span class="fname">BTree.hpp</span>
+        <span class="lang">C++</span>
+      </div>
+<pre><code><span class="c">//情况A,刚刚分裂的parent是根节点(没有父亲)</span>
+<span class="c">//创建一个新的根</span>
+<span class="k">if</span> <span class="p">(</span><span class="f">parent</span><span class="o">-&gt;</span><span class="f">_parent</span> <span class="o">==</span> <span class="k">nullptr</span><span class="p">)</span>
+<span class="p">{</span>
+	<span class="f">_root</span> <span class="o">=</span> <span class="k">new</span> <span class="t">Node</span><span class="p">;</span>
+	<span class="f">_root</span><span class="o">-&gt;</span><span class="f">_keys</span><span class="p">[</span><span class="n">0</span><span class="p">]</span> <span class="o">=</span> <span class="f">parent</span><span class="o">-&gt;</span><span class="f">_keys</span><span class="p">[</span><span class="f">mid</span><span class="p">];</span>
+	<span class="f">_root</span><span class="o">-&gt;</span><span class="f">_subs</span><span class="p">[</span><span class="n">0</span><span class="p">]</span> <span class="o">=</span> <span class="f">parent</span><span class="p">;</span>
+	<span class="f">_root</span><span class="o">-&gt;</span><span class="f">_subs</span><span class="p">[</span><span class="n">1</span><span class="p">]</span> <span class="o">=</span> <span class="f">brother</span><span class="p">;</span>
+	<span class="f">_root</span><span class="o">-&gt;</span><span class="f">_n</span> <span class="o">=</span> <span class="n">1</span><span class="p">;</span>
+	<span class="f">parent</span><span class="o">-&gt;</span><span class="f">_parent</span> <span class="o">=</span> <span class="f">_root</span><span class="p">;</span>
+	<span class="f">brother</span><span class="o">-&gt;</span><span class="f">_parent</span> <span class="o">=</span> <span class="f">_root</span><span class="p">;</span>
+	<span class="k">break</span><span class="p">;</span>
+<span class="p">}</span>
+</code></pre>
+    </div>
+
+    <div class="diagram">
+      <span class="cap">情况 A：根分裂 → 树高 +1，这是 B 树唯一的"长高"方式</span>
+<pre>分裂前：              分裂后：
+                     <span class="hl">新根: [ 20 ]</span>
+   [ 10 | 20 | 30 ]        /        \
+    /   |    |    \     [ 10 ]     [ 30 ]
+   c0   c1   c2   c3    /   \      /   \
+                       c0   c1    c2   c3
+
+<span class="hl-g">B 树是"从叶子向上生长"的 —— 它永远不会像 BST 那样从上方插入。</span>
+所有新节点都先在叶子出现，再通过分裂一层层往上顶。</pre>
+    </div>
+
+    <h4>情况 B：分裂的不是根 → 继续向上</h4>
+
+    <div class="code-wrap">
+      <div class="code-head">
+        <span class="dots"><i></i><i></i><i></i></span>
+        <span class="fname">BTree.hpp</span>
+        <span class="lang">C++</span>
+      </div>
+<pre><code><span class="c">//有父节点</span>
+<span class="k">else</span>
+<span class="p">{</span>
+	<span class="c">//转换成往parent-&gt;parent去插入parent-&gt;[mid]和brother</span>
+	<span class="f">brother</span><span class="o">-&gt;</span><span class="f">_parent</span> <span class="o">=</span> <span class="f">parent</span><span class="o">-&gt;</span><span class="f">_parent</span><span class="p">;</span>
+	<span class="f">newkey</span> <span class="o">=</span> <span class="f">parent</span><span class="o">-&gt;</span><span class="f">_keys</span><span class="p">[</span><span class="f">mid</span><span class="p">];</span>
+	<span class="f">child</span> <span class="o">=</span> <span class="f">brother</span><span class="p">;</span>
+	<span class="f">parent</span> <span class="o">=</span> <span class="f">parent</span><span class="o">-&gt;</span><span class="f">_parent</span><span class="p">;</span>
+<span class="p">}</span>
+</code></pre>
+    </div>
+
+    <div class="diagram">
+      <span class="cap">情况 B：往上插，父节点也可能因此溢出</span>
+<pre>                [ 20 ]
+               /      \
+           [ 10 ]    [ <span class="hl">30 | 40 | 50</span> ]    ← 这个节点满了，要分裂
+                      /   |    |    \
+                     c2   c3   c4   c5
+
+第 1 轮结束后：
+   newkey = 40
+   child  = 新兄弟 [ 50 ]
+   parent = [ 20 ]     ← 回到循环开头，往这里插 40
+                          ↓
+第 2 轮：InsertKey([20], 40, [50])
+
+                [ <span class="hl-g">20 | 40</span> ]
+               /    |     \
+           [ 10 ] [ 30 ]  [ 50 ]
+
+<span class="hl-g">父节点插入后如果也满了，就在下一轮继续分裂 —— 这就是"向上传播"。</span>
+最坏的情况会一直传到根，触发情况 A，树才长高一层。</pre>
+    </div>
+
+    <!-- ================= 6 ================= -->
+    <h2 id="s6">6：删除的难点：underflow</h2>
+
+    <h3>6.1：什么叫 underflow</h3>
+
+    <p>B 树规定：<strong>除根节点外，每个节点至少有 <code>⌈M/2⌉-1</code> 个关键字</strong>。删除之后如果低于这个下界，就叫 <strong>underflow（下溢）</strong>，必须修复。</p>
+
+    <div class="code-wrap">
+      <div class="code-head">
+        <span class="dots"><i></i><i></i><i></i></span>
+        <span class="fname">BTree.hpp</span>
+        <span class="lang">C++</span>
+      </div>
+<pre><code><span class="c">//最少需要的key数</span>
+<span class="t">size_t</span> <span class="f">MinKeys</span><span class="p">()</span>
+<span class="p">{</span>
+	<span class="k">return</span> <span class="p">(</span><span class="t">M</span> <span class="o">+</span> <span class="n">1</span><span class="p">)</span> <span class="o">/</span> <span class="n">2</span> <span class="o">-</span> <span class="n">1</span><span class="p">;</span>
+<span class="p">}</span>
+</code></pre>
+    </div>
+
+    <div class="box tip">
+      <span class="box-title">为什么是 <code>(M+1)/2 - 1</code> 而不是 <code>M/2 - 1</code>？</span>
+      <p>因为 <code>⌈M/2⌉ = (M+1)/2</code>（整数除法下）。M=3 时是 <code>2-1 = 1</code>；M=4 时是 <code>2-1 = 1</code>；M=5 时是 <code>3-1 = 2</code>。用整数除法写 <code>M/2 - 1</code> 在 M=5 时会得到 1，<strong>少算一个，会破坏树的平衡性</strong>。</p>
+    </div>
+
+    <div class="diagram">
+      <span class="cap">M=3 时的 underflow 判定</span>
+<pre>M = 3 → MinKeys = (3+1)/2 - 1 = <span class="hl">1</span>
+
+节点 [20] 删完变 []      _n = 0 &lt; 1  →  <span class="hl">underflow，要修</span>
+节点 [20|30] 删完变 [30]  _n = 1 &gt;= 1 →  没事
+节点 [20|30] 删完变 []    _n = 0 &lt; 1  →  <span class="hl">underflow，要修</span></pre>
+    </div>
+
+    <h3>6.2：三种修复手段</h3>
+
+    <div class="diagram">
+      <span class="cap">underflow 处理决策树</span>
+<pre>underflow 了怎么办？
+  │
+  ├─ 左兄弟有多余 key？ → <span class="hl-b">借一个（左旋）</span>
+  ├─ 右兄弟有多余 key？ → <span class="hl-b">借一个（右旋）</span>
+  └─ 都没有多余        → <span class="hl">合并</span>
+        └─ 合并后父节点少一个 key，可能也 underflow → 继续往上修</pre>
+    </div>
+
+    <div class="box key">
+      <span class="box-title">优先借，借不到才合并</span>
+      <p>借只影响 3 个节点（自己、兄弟、父节点），是局部操作；合并会让节点数减少，可能导致父节点也 underflow，引发连锁反应。所以在两个兄弟都有余量的情况下，<strong>永远选借</strong>。</p>
+      <p>而当左右兄弟都没多余时，其实说明<strong>它们都恰好处于最小值</strong>，此时只能合并 —— 合并后节点总数正好是合法的（<code>MinKeys + MinKeys + 1 = M - 1</code>），这是 B 树保持平衡的关键数学性质。</p>
+    </div>
+
+    <h3>6.3：删除总流程</h3>
+
+    <div class="diagram">
+      <span class="cap">Remove 的完整流程</span>
+<pre>Remove(key)
+  │
+  ├─ Find 查找 → 不存在返回 false
+  │
+  ├─ 不是叶子？ → 用后继替换，转成删叶子
+  │
+  ├─ RemoveKey 在叶子删除
+  │
+  └─ while (不是根 且 underflow)
+       │
+       ├─ 左兄弟有多余？ → 借左兄弟（3步：右移→父key下移→兄弟key上移）
+       ├─ 右兄弟有多余？ → 借右兄弟（3步：追加→父key下移→兄弟key上移）
+       └─ 都没有 → 合并（6步：定左右→父key下移→拼右节点→父删key→根降高度检查→cur=parent继续）</pre>
+    </div>
+
+    <!-- ================= 8 ================= -->
+    <h2 id="s7">7：删除第 1 步：非叶子转叶子</h2>
+
+    <h3>7.1：为什么不能直接删内部节点</h3>
+
+    <p>如果一个要删的 key 在内部节点（非叶子），它身上挂着两个子树。直接删掉会<strong>让子树失去归属</strong> —— 比如节点 <code>[30|60]</code>，删掉 60 之后，<code>60</code> 右边的孩子（所有大于 60 的 key）就没地方挂了。</p>
+
+    <p>所以标准做法是：<strong>用"后继"顶替它，然后去叶子把后继删掉</strong>。这样就把"删内部节点"统一转换成了"删叶子节点"，只需要处理一种情况。</p>
+
+    <h3>7.2：找后继</h3>
+
+    <div class="code-wrap">
+      <div class="code-head">
+        <span class="dots"><i></i><i></i><i></i></span>
+        <span class="fname">BTree.hpp</span>
+        <span class="lang">C++</span>
+      </div>
+<pre><code><span class="c">//找子树最左节点</span>
+<span class="c">//一个 key 的 "后继" 是比它大的最小 key。在 B 树里，后继就是它**右子树的最左节点**的第一个 key。</span>
+<span class="t">Node</span><span class="o">*</span> <span class="f">FindLeftMost</span><span class="p">(</span><span class="t">Node</span><span class="o">*</span> <span class="f">node</span><span class="p">)</span>
+<span class="p">{</span>
+	<span class="k">while</span> <span class="p">((</span><span class="f">node</span><span class="o">-&gt;</span><span class="f">_subs</span><span class="p">[</span><span class="n">0</span><span class="p">]))</span> <span class="c">//有左孩子,没有左孩子停止</span>
+		<span class="f">node</span> <span class="o">=</span> <span class="f">node</span><span class="o">-&gt;</span><span class="f">_subs</span><span class="p">[</span><span class="n">0</span><span class="p">];</span> <span class="c">//一直往左走</span>
+	<span class="k">return</span> <span class="f">node</span><span class="p">;</span> <span class="c">//最左节点</span>
+<span class="p">}</span>
+</code></pre>
+    </div>
+
+    <h3>7.3：替换 + 转移删除目标</h3>
+
+    <div class="code-wrap">
+      <div class="code-head">
+        <span class="dots"><i></i><i></i><i></i></span>
+        <span class="fname">BTree.hpp</span>
+        <span class="lang">C++</span>
+      </div>
+<pre><code><span class="c">//如果不是叶子,转成叶子</span>
+<span class="k">if</span> <span class="p">(</span><span class="f">cur</span><span class="o">-&gt;</span><span class="f">_subs</span><span class="p">[</span><span class="n">0</span><span class="p">])</span> <span class="c">//有左孩子就不是叶子,(叶子的孩子都是nullptr)</span>
+<span class="p">{</span>
+	<span class="c">//找后继:右树的最左节点</span>
+	<span class="t">Node</span><span class="o">*</span> <span class="f">successor</span> <span class="o">=</span> <span class="f">FindLeftMost</span><span class="p">(</span><span class="f">cur</span><span class="o">-&gt;</span><span class="f">_subs</span><span class="p">[</span><span class="f">pos</span> <span class="o">+</span> <span class="n">1</span><span class="p">]);</span>
+	<span class="c">//用后继值覆盖掉要删的key</span>
+	<span class="f">cur</span><span class="o">-&gt;</span><span class="f">_keys</span><span class="p">[</span><span class="f">pos</span><span class="p">]</span> <span class="o">=</span> <span class="f">successor</span><span class="o">-&gt;</span><span class="f">_keys</span><span class="p">[</span><span class="n">0</span><span class="p">];</span>
+	<span class="f">cur</span> <span class="o">=</span> <span class="f">successor</span><span class="p">;</span>
+	<span class="f">pos</span> <span class="o">=</span> <span class="n">0</span><span class="p">;</span>
+<span class="p">}</span>
+</code></pre>
+    </div>
+
+    <div class="diagram">
+      <span class="cap">删除内部节点 50 的完整过程</span>
+<pre>删之前：
+          [ <span class="hl">50</span> ]          ← 要删 50，它不是叶子
+         /      \
+      [ 30 ]    [ 70 | 80 ]
+                /
+             [ 60 ]          ← 50 的后继是 60
+                              （右子树 _subs[1] 的最左节点）
+
+第 1 步：把后继 60 覆盖到 50 的位置
+          [ <span class="hl-g">60</span> ]          ← 内容变成 60 了
+         /      \
+      [ 30 ]    [ 70 | 80 ]
+                /
+             [ 60 ]          ← 现在去删这个叶子里的 60
+
+第 2 步：cur 指向叶子 [60]，pos = 0
+         RemoveKey 把 60 从叶子里删掉
+
+           [ 60 ]
+          /      \
+       [ 30 ]    [ 70 | 80 ]
+                      ↑
+             删完叶子空了，触发 underflow → 进入修复流程</pre>
+    </div>
+
+    <div class="box key">
+      <span class="box-title">为什么取后继而不是前驱？</span>
+      <p>两者都可以，选一个就行。取后继 = 往右子树走到底再一直向左；取前驱 = 往左子树走到底再一直向右。本文统一用后继，保证 <code>pos = 0</code>（后继永远是它所在节点的第一个 key），后面的代码能简化。</p>
+    </div>
+
+    <h3>7.4：RemoveKey —— 节点内删除</h3>
+
+    <p>和插入对称，删除也是数组元素的前移覆盖。注意 <code>_keys[i]</code> 的<strong>右</strong>孩子是 <code>_subs[i+1]</code>，所以 key 前移一格，孩子也跟着前移一格。</p>
+
+    <div class="code-wrap">
+      <div class="code-head">
+        <span class="dots"><i></i><i></i><i></i></span>
+        <span class="fname">BTree.hpp</span>
+        <span class="lang">C++</span>
+      </div>
+<pre><code><span class="c">//删除节点里的某个key</span>
+<span class="c">//数组删除元素,后面的元素往前挪,覆盖要删掉的位置。key和它的右孩子是绑定的,要一起挪</span>
+<span class="k">void</span> <span class="f">RemoveKey</span><span class="p">(</span><span class="t">Node</span><span class="o">*</span> <span class="f">node</span><span class="p">,</span> <span class="t">size_t</span> <span class="f">pos</span><span class="p">)</span>
+<span class="p">{</span>
+	<span class="k">for</span> <span class="p">(</span><span class="t">size_t</span> <span class="f">i</span> <span class="o">=</span> <span class="f">pos</span><span class="p">;</span> <span class="f">i</span> <span class="o">&lt;</span> <span class="f">node</span><span class="o">-&gt;</span><span class="f">_n</span> <span class="o">-</span> <span class="n">1</span><span class="p">;</span> <span class="f">i</span><span class="o">++</span><span class="p">)</span>
+	<span class="p">{</span>
+		<span class="f">node</span><span class="o">-&gt;</span><span class="f">_keys</span><span class="p">[</span><span class="f">i</span><span class="p">]</span> <span class="o">=</span> <span class="f">node</span><span class="o">-&gt;</span><span class="f">_keys</span><span class="p">[</span><span class="f">i</span> <span class="o">+</span> <span class="n">1</span><span class="p">];</span>      <span class="c">//后面的key往前挪,覆盖掉pos这个位置</span>
+		<span class="f">node</span><span class="o">-&gt;</span><span class="f">_subs</span><span class="p">[</span><span class="f">i</span> <span class="o">+</span> <span class="n">1</span><span class="p">]</span> <span class="o">=</span> <span class="f">node</span><span class="o">-&gt;</span><span class="f">_subs</span><span class="p">[</span><span class="f">i</span> <span class="o">+</span> <span class="n">2</span><span class="p">];</span> <span class="c">//key的右孩子也往前挪动</span>
+	<span class="p">}</span>
+	<span class="f">node</span><span class="o">-&gt;</span><span class="f">_n</span><span class="o">--</span><span class="p">;</span> <span class="c">//数量减一</span>
+<span class="p">}</span>
+</code></pre>
+    </div>
+
+    <div class="diagram">
+      <span class="cap">RemoveKey([30|50|70], pos=1) 的过程</span>
+<pre>删除前：
+_keys:  [ 0 ]   [ 1 ]   [ 2 ]
+         30      <span class="hl">50</span>      70
+_subs:  [ 0 ]   [ 1 ]   [ 2 ]   [ 3 ]
+         c0      c1      c2      c3
+
+i = 1：_keys[1] = _keys[2] = 70；_subs[2] = _subs[3] = c3
+i = 2：不满足 i &lt; _n-1(2)，退出
+
+删除后：
+_keys:  [ 0 ]   [ 1 ]   [ 2 ]
+         30      70      (残留)
+_subs:  [ 0 ]   [ 1 ]   [ 2 ]   [ 3 ]
+         c0      c1      c3      (残留)
+                                         _n = 2
+<span class="mut">c3 是 70 的右孩子，跟着 70 一起前移 ✓</span>
+<span class="mut">c2 被覆盖掉了 —— 它是 50 的右孩子，50 都没了，它也该消失 ✓</span></pre>
+    </div>
+
+    <!-- ================= 8 ================= -->
+    <h2 id="s8">8：删除第 2 步：借位与合并</h2>
+
+    <h3>8.1：准备工作</h3>
+
+    <div class="code-wrap">
+      <div class="code-head">
+        <span class="dots"><i></i><i></i><i></i></span>
+        <span class="fname">BTree.hpp</span>
+        <span class="lang">C++</span>
+      </div>
+<pre><code><span class="c">//查找当前节点是父节点的第几个孩子</span>
+<span class="t">int</span> <span class="f">GetChildeIndex</span><span class="p">(</span><span class="t">Node</span><span class="o">*</span> <span class="f">parent</span><span class="p">,</span> <span class="t">Node</span><span class="o">*</span> <span class="f">cur</span><span class="p">)</span>
+<span class="p">{</span>
+	<span class="k">for</span> <span class="p">(</span><span class="t">size_t</span> <span class="f">i</span> <span class="o">=</span> <span class="n">0</span><span class="p">;</span> <span class="f">i</span> <span class="o">&lt;=</span> <span class="f">parent</span><span class="o">-&gt;</span><span class="f">_n</span><span class="p">;</span> <span class="f">i</span><span class="o">++</span><span class="p">)</span>
+	<span class="p">{</span>
+		<span class="k">if</span> <span class="p">(</span><span class="f">parent</span><span class="o">-&gt;</span><span class="f">_subs</span><span class="p">[</span><span class="f">i</span><span class="p">]</span> <span class="o">==</span> <span class="f">cur</span><span class="p">)</span>
+		<span class="p">{</span>
+			<span class="k">return</span> <span class="p">(</span><span class="t">int</span><span class="p">)</span><span class="f">i</span><span class="p">;</span>
+		<span class="p">}</span>
+	<span class="p">}</span>
+	<span class="k">return</span> <span class="o">-</span><span class="n">1</span><span class="p">;</span>
+<span class="p">}</span>
+
+<span class="c">// not leaf</span>
+<span class="k">while</span> <span class="p">(</span><span class="f">cur</span> <span class="o">!=</span> <span class="f">_root</span> <span class="o">&amp;&amp;</span> <span class="f">cur</span><span class="o">-&gt;</span><span class="f">_n</span> <span class="o">&lt;</span> <span class="f">MinKeys</span><span class="p">())</span>
+<span class="p">{</span>
+	<span class="t">Node</span><span class="o">*</span> <span class="f">parent</span> <span class="o">=</span> <span class="f">cur</span><span class="o">-&gt;</span><span class="f">_parent</span><span class="p">;</span>
+	<span class="t">int</span> <span class="f">idx</span> <span class="o">=</span> <span class="f">GetChildeIndex</span><span class="p">(</span><span class="f">parent</span><span class="p">,</span> <span class="f">cur</span><span class="p">);</span>
+
+	<span class="t">Node</span><span class="o">*</span> <span class="f">leftbrother</span> <span class="o">=</span> <span class="p">(</span><span class="f">idx</span> <span class="o">&gt;</span> <span class="n">0</span><span class="p">)</span> <span class="o">?</span> <span class="f">parent</span><span class="o">-&gt;</span><span class="f">_subs</span><span class="p">[</span><span class="f">idx</span> <span class="o">-</span> <span class="n">1</span><span class="p">]</span> <span class="o">:</span> <span class="k">nullptr</span><span class="p">;</span>
+	<span class="t">Node</span><span class="o">*</span> <span class="f">rightbrother</span> <span class="o">=</span> <span class="p">(</span><span class="f">idx</span> <span class="o">&lt;</span> <span class="p">(</span><span class="t">int</span><span class="p">)</span><span class="f">parent</span><span class="o">-&gt;</span><span class="f">_n</span><span class="p">)</span> <span class="o">?</span> <span class="f">parent</span><span class="o">-&gt;</span><span class="f">_subs</span><span class="p">[</span><span class="f">idx</span> <span class="o">+</span> <span class="n">1</span><span class="p">]</span> <span class="o">:</span> <span class="k">nullptr</span><span class="p">;</span>
+	<span class="c">/* ... 三种手段 ... */</span>
+<span class="p">}</span>
+</code></pre>
+    </div>
+
+    <div class="box tip">
+      <span class="box-title">循环条件的三个要点</span>
+      <ul style="margin-bottom:0">
+        <li><code>cur != _root</code>：根节点<strong>没有最少 key 的限制</strong>，它可以只有 1 个 key，甚至 0 个（然后降高度）。所以根不用修。</li>
+        <li><code>cur-&gt;_n &lt; MinKeys()</code>：确实 underflow 了才进循环。</li>
+        <li><code>leftBrother</code>：<code>idx &gt; 0</code> 才有左兄弟。 <code>rightBrother</code>：<code>idx &lt; parent-&gt;_n</code> 才有右兄弟（孩子下标最大是 <code>_n</code>）。</li>
+      </ul>
+    </div>
+
+    <h3>8.2：手段一 —— 借左兄弟</h3>
+
+    <p>借用左兄弟的<strong>最大 key</strong>。因为父节点的 key 是"分隔墙"，所以要做一个<strong>旋转</strong>：</p>
+
+    <ol class="steps">
+      <li><b>cur 整体右移一格</b>，腾出 <code>_keys[0]</code> 和 <code>_subs[0]</code> 的位置。</li>
+      <li><b>父节点的 key 下移</b>到 <code>cur-&gt;_keys[0]</code>；同时把左兄弟最大 key 的右孩子（<code>_subs[leftbrother-&gt;_n]</code>）过继过来当 <code>cur-&gt;_subs[0]</code>。</li>
+      <li><b>左兄弟的最大 key 上移</b>到父节点的空位，左兄弟 <code>_n--</code>。</li>
+    </ol>
+
+    <div class="code-wrap">
+      <div class="code-head">
+        <span class="dots"><i></i><i></i><i></i></span>
+        <span class="fname">BTree.hpp</span>
+        <span class="lang">C++</span>
+      </div>
+<pre><code><span class="c">//手段一:从左兄弟借</span>
+<span class="k">if</span> <span class="p">(</span><span class="f">leftbrother</span> <span class="o">&amp;&amp;</span> <span class="f">leftbrother</span><span class="o">-&gt;</span><span class="f">_n</span> <span class="o">&gt;</span> <span class="f">MinKeys</span><span class="p">())</span>
+<span class="p">{</span>
+	<span class="c">//1 cur整体右移一个,腾出0下标的位置</span>
+	<span class="k">for</span> <span class="p">(</span><span class="t">size_t</span> <span class="f">i</span> <span class="o">=</span> <span class="f">cur</span><span class="o">-&gt;</span><span class="f">_n</span><span class="p">;</span> <span class="f">i</span> <span class="o">&gt;</span> <span class="n">0</span><span class="p">;</span> <span class="f">i</span><span class="o">--</span><span class="p">)</span>
+	<span class="p">{</span>
+		<span class="f">cur</span><span class="o">-&gt;</span><span class="f">_keys</span><span class="p">[</span><span class="f">i</span><span class="p">]</span> <span class="o">=</span> <span class="f">cur</span><span class="o">-&gt;</span><span class="f">_keys</span><span class="p">[</span><span class="f">i</span> <span class="o">-</span> <span class="n">1</span><span class="p">];</span>
+		<span class="f">cur</span><span class="o">-&gt;</span><span class="f">_subs</span><span class="p">[</span><span class="f">i</span> <span class="o">+</span> <span class="n">1</span><span class="p">]</span> <span class="o">=</span> <span class="f">cur</span><span class="o">-&gt;</span><span class="f">_subs</span><span class="p">[</span><span class="f">i</span><span class="p">];</span>
+	<span class="p">}</span>
+	<span class="f">cur</span><span class="o">-&gt;</span><span class="f">_subs</span><span class="p">[</span><span class="n">1</span><span class="p">]</span> <span class="o">=</span> <span class="f">cur</span><span class="o">-&gt;</span><span class="f">_subs</span><span class="p">[</span><span class="n">0</span><span class="p">];</span>
+
+	<span class="c">//2 父节点的key下移到cur的[0]</span>
+	<span class="f">cur</span><span class="o">-&gt;</span><span class="f">_keys</span><span class="p">[</span><span class="n">0</span><span class="p">]</span> <span class="o">=</span> <span class="f">parent</span><span class="o">-&gt;</span><span class="f">_keys</span><span class="p">[</span><span class="f">idx</span> <span class="o">-</span> <span class="n">1</span><span class="p">];</span>
+	<span class="c">//左兄弟最大key的右孩子过继当我的左孩子</span>
+	<span class="f">cur</span><span class="o">-&gt;</span><span class="f">_subs</span><span class="p">[</span><span class="n">0</span><span class="p">]</span> <span class="o">=</span> <span class="f">leftbrother</span><span class="o">-&gt;</span><span class="f">_subs</span><span class="p">[</span><span class="f">leftbrother</span><span class="o">-&gt;</span><span class="f">_n</span><span class="p">];</span>
+	<span class="k">if</span> <span class="p">(</span><span class="f">cur</span><span class="o">-&gt;</span><span class="f">_subs</span><span class="p">[</span><span class="n">0</span><span class="p">])</span>
+		<span class="f">cur</span><span class="o">-&gt;</span><span class="f">_subs</span><span class="p">[</span><span class="n">0</span><span class="p">]</span><span class="o">-&gt;</span><span class="f">_parent</span> <span class="o">=</span> <span class="f">cur</span><span class="p">;</span>
+
+	<span class="c">//3 左兄弟最大key上移到父节点</span>
+	<span class="f">parent</span><span class="o">-&gt;</span><span class="f">_keys</span><span class="p">[</span><span class="f">idx</span> <span class="o">-</span> <span class="n">1</span><span class="p">]</span> <span class="o">=</span> <span class="f">leftbrother</span><span class="o">-&gt;</span><span class="f">_keys</span><span class="p">[</span><span class="f">leftbrother</span><span class="o">-&gt;</span><span class="f">_n</span> <span class="o">-</span> <span class="n">1</span><span class="p">];</span>
+	<span class="f">leftbrother</span><span class="o">-&gt;</span><span class="f">_n</span><span class="o">--</span><span class="p">;</span>
+	<span class="f">cur</span><span class="o">-&gt;</span><span class="f">_n</span><span class="o">++</span><span class="p">;</span>
+<span class="p">}</span>
+</code></pre>
+    </div>
+
+    <div class="diagram">
+      <span class="cap">借左兄弟的完整推演（cur 已经空了）</span>
+<pre>借之前：
+                [ 50 ]              ← parent
+               /      \
+          [ 20 | 30 ]   [ <span class="hl">cur</span> ]         ← leftBrother 有多余，cur 空了
+           /   |   \      /  \
+          c0   c1   c2  (空)
+
+① cur 右移（本来就是空的，挪了个寂寞）
+
+② 50 下移给 cur，左兄弟的 c2 过继给 cur：
+                [ 50 ]
+               /      \
+          [ 20 | 30 ]   [ 50 ]
+                        /
+                       c2
+
+③ 30 上移到父节点：
+                [ <span class="hl-g">30</span> ]
+               /      \
+          [ 20 ]      [ 50 ]
+                       /
+                      c2
+
+<span class="hl-g">完成，cur 有 1 个 key，不再 underflow ✓</span></pre>
+    </div>
+
+    <div class="box warn">
+      <span class="box-title">第 1 步最后那行 <code>cur-&gt;_subs[1] = cur-&gt;_subs[0]</code> 容易被漏掉</span>
+      <p>循环把 <code>_keys[i]</code> 和 <code>_subs[i+1]</code> 一起右移了，但 <code>_subs[0]</code> 没有被循环处理到（循环里最小处理的是 <code>_subs[1]</code>）。<code>_subs[0]</code> 原本指向 cur 最左边的孩子，右移后它应该跑到 <code>_subs[1]</code>。所以这行必须单独补上 —— <strong>少了它，cur 最左边的孩子指针就丢了</strong>。</p>
+    </div>
+
+    <h3>8.3：手段二 —— 借右兄弟</h3>
+
+    <p>借用右兄弟的<strong>最小 key</strong>，是左借的镜像操作：</p>
+
+    <ol class="steps">
+      <li><b>父节点的 key 追加到 cur 末尾</b>，右兄弟最小 key 的左孩子（<code>_subs[0]</code>）过继给 cur 当右孩子。</li>
+      <li><b>右兄弟的最小 key 上移</b>到父节点空位。</li>
+      <li><b>右兄弟整体左移一格</b>，补上被借走的位置。</li>
+    </ol>
+
+    <div class="code-wrap">
+      <div class="code-head">
+        <span class="dots"><i></i><i></i><i></i></span>
+        <span class="fname">BTree.hpp</span>
+        <span class="lang">C++</span>
+      </div>
+<pre><code><span class="c">//手段二:从右兄弟借</span>
+<span class="k">else</span> <span class="k">if</span> <span class="p">(</span><span class="f">rightbrother</span> <span class="o">&amp;&amp;</span> <span class="f">rightbrother</span><span class="o">-&gt;</span><span class="f">_n</span> <span class="o">&gt;</span> <span class="f">MinKeys</span><span class="p">())</span>
+<span class="p">{</span>
+	<span class="c">//1 父节点的key追加到cur的末尾</span>
+	<span class="f">cur</span><span class="o">-&gt;</span><span class="f">_keys</span><span class="p">[</span><span class="f">cur</span><span class="o">-&gt;</span><span class="f">_n</span><span class="p">]</span> <span class="o">=</span> <span class="f">parent</span><span class="o">-&gt;</span><span class="f">_keys</span><span class="p">[</span><span class="f">idx</span><span class="p">];</span>
+	<span class="c">//右兄弟最小key的左孩子过继给我当右孩子</span>
+	<span class="f">cur</span><span class="o">-&gt;</span><span class="f">_subs</span><span class="p">[</span><span class="f">cur</span><span class="o">-&gt;</span><span class="f">_n</span> <span class="o">+</span> <span class="n">1</span><span class="p">]</span> <span class="o">=</span> <span class="f">rightbrother</span><span class="o">-&gt;</span><span class="f">_subs</span><span class="p">[</span><span class="n">0</span><span class="p">];</span>
+	<span class="k">if</span> <span class="p">(</span><span class="f">cur</span><span class="o">-&gt;</span><span class="f">_subs</span><span class="p">[</span><span class="f">cur</span><span class="o">-&gt;</span><span class="f">_n</span> <span class="o">+</span> <span class="n">1</span><span class="p">])</span>
+		<span class="f">cur</span><span class="o">-&gt;</span><span class="f">_subs</span><span class="p">[</span><span class="f">cur</span><span class="o">-&gt;</span><span class="f">_n</span> <span class="o">+</span> <span class="n">1</span><span class="p">]</span><span class="o">-&gt;</span><span class="f">_parent</span> <span class="o">=</span> <span class="f">cur</span><span class="p">;</span>
+	<span class="f">cur</span><span class="o">-&gt;</span><span class="f">_n</span><span class="o">++</span><span class="p">;</span>
+
+	<span class="c">//2 右兄弟最小key上移到父节点</span>
+	<span class="f">parent</span><span class="o">-&gt;</span><span class="f">_keys</span><span class="p">[</span><span class="f">idx</span><span class="p">]</span> <span class="o">=</span> <span class="f">rightbrother</span><span class="o">-&gt;</span><span class="f">_keys</span><span class="p">[</span><span class="n">0</span><span class="p">];</span>
+
+	<span class="c">//3 右兄弟整体左移一格</span>
+	<span class="k">for</span> <span class="p">(</span><span class="t">size_t</span> <span class="f">i</span> <span class="o">=</span> <span class="n">0</span><span class="p">;</span> <span class="f">i</span> <span class="o">&lt;</span> <span class="f">rightbrother</span><span class="o">-&gt;</span><span class="f">_n</span> <span class="o">-</span> <span class="n">1</span><span class="p">;</span> <span class="f">i</span><span class="o">++</span><span class="p">)</span>
+	<span class="p">{</span>
+		<span class="f">rightbrother</span><span class="o">-&gt;</span><span class="f">_keys</span><span class="p">[</span><span class="f">i</span><span class="p">]</span> <span class="o">=</span> <span class="f">rightbrother</span><span class="o">-&gt;</span><span class="f">_keys</span><span class="p">[</span><span class="f">i</span> <span class="o">+</span> <span class="n">1</span><span class="p">];</span>
+		<span class="f">rightbrother</span><span class="o">-&gt;</span><span class="f">_subs</span><span class="p">[</span><span class="f">i</span><span class="p">]</span> <span class="o">=</span> <span class="f">rightbrother</span><span class="o">-&gt;</span><span class="f">_subs</span><span class="p">[</span><span class="f">i</span> <span class="o">+</span> <span class="n">1</span><span class="p">];</span>
+	<span class="p">}</span>
+	<span class="f">rightbrother</span><span class="o">-&gt;</span><span class="f">_subs</span><span class="p">[</span><span class="f">rightbrother</span><span class="o">-&gt;</span><span class="f">_n</span> <span class="o">-</span> <span class="n">1</span><span class="p">]</span> <span class="o">=</span> <span class="f">rightbrother</span><span class="o">-&gt;</span><span class="f">_subs</span><span class="p">[</span><span class="f">rightbrother</span><span class="o">-&gt;</span><span class="f">_n</span><span class="p">];</span>
+	<span class="f">rightbrother</span><span class="o">-&gt;</span><span class="f">_n</span><span class="o">--</span><span class="p">;</span>
+<span class="p">}</span>
+</code></pre>
+    </div>
+
+    <div class="diagram">
+      <span class="cap">借右兄弟的完整推演（cur 已经空了）</span>
+<pre>借之前：
+                [ 50 ]
+               /      \
+           [ <span class="hl">cur</span> ]    [ 70 | 80 ]     ← cur 空了，右兄弟有多余
+           (空)
+
+① 50 追加到 cur，右兄弟的 c0 过继给 cur：
+                [ 50 ]
+               /      \
+           [ 50 ]     [ 70 | 80 ]
+              \
+               c0
+
+② 70 上移到父节点：
+                [ <span class="hl-g">70</span> ]
+               /      \
+           [ 50 ]     [ 70 | 80 ]
+              \
+               c0
+
+③ 右兄弟左移：
+                [ 70 ]
+               /      \
+           [ 50 ]     [ 80 ]
+              \        /
+               c0     c1
+
+<span class="hl-g">完成 ✓</span>
+<span class="mut">注意 ③ 的循环只跑到 _n-2，最后一行单独补 _subs[_n]</span>
+<span class="mut">—— 因为 _subs 比 _keys 多一个，要多搬一次</span></pre>
+    </div>
+
+    <h3>8.4：手段三 —— 合并</h3>
+
+    <p>左右兄弟都没多余 key，就只能合并。合并的核心是<strong>把"父节点的分隔 key"拉下来，连同右节点一起并到左节点</strong>。</p>
+
+    <div class="code-wrap">
+      <div class="code-head">
+        <span class="dots"><i></i><i></i><i></i></span>
+        <span class="fname">BTree.hpp</span>
+        <span class="lang">C++</span>
+      </div>
+<pre><code><span class="k">else</span><span class="c">//手段三:合并</span>
+<span class="p">{</span>
+	<span class="c">//1 确定左右：有左兄弟就和左合，没有就和右合</span>
+	<span class="t">Node</span><span class="o">*</span> <span class="f">left</span> <span class="o">=</span> <span class="f">leftbrother</span> <span class="o">?</span> <span class="f">leftbrother</span> <span class="o">:</span> <span class="f">cur</span><span class="p">;</span>
+	<span class="t">Node</span><span class="o">*</span> <span class="f">right</span> <span class="o">=</span> <span class="f">leftbrother</span> <span class="o">?</span> <span class="f">cur</span> <span class="o">:</span> <span class="f">rightbrother</span><span class="p">;</span>
+	<span class="t">int</span> <span class="f">leftIdx</span> <span class="o">=</span> <span class="f">leftbrother</span> <span class="o">?</span> <span class="f">idx</span> <span class="o">-</span> <span class="n">1</span> <span class="o">:</span> <span class="f">idx</span><span class="p">;</span>
+
+	<span class="c">//2 父节点的key下移到左节点末尾</span>
+	<span class="f">left</span><span class="o">-&gt;</span><span class="f">_keys</span><span class="p">[</span><span class="f">left</span><span class="o">-&gt;</span><span class="f">_n</span><span class="p">]</span> <span class="o">=</span> <span class="f">parent</span><span class="o">-&gt;</span><span class="f">_keys</span><span class="p">[</span><span class="f">leftIdx</span><span class="p">];</span>
+	<span class="f">left</span><span class="o">-&gt;</span><span class="f">_subs</span><span class="p">[</span><span class="f">left</span><span class="o">-&gt;</span><span class="f">_n</span> <span class="o">+</span> <span class="n">1</span><span class="p">]</span> <span class="o">=</span> <span class="f">right</span><span class="o">-&gt;</span><span class="f">_subs</span><span class="p">[</span><span class="n">0</span><span class="p">];</span>
+	<span class="k">if</span> <span class="p">(</span><span class="f">left</span><span class="o">-&gt;</span><span class="f">_subs</span><span class="p">[</span><span class="f">left</span><span class="o">-&gt;</span><span class="f">_n</span> <span class="o">+</span> <span class="n">1</span><span class="p">])</span>
+		<span class="f">left</span><span class="o">-&gt;</span><span class="f">_subs</span><span class="p">[</span><span class="f">left</span><span class="o">-&gt;</span><span class="f">_n</span> <span class="o">+</span> <span class="n">1</span><span class="p">]</span><span class="o">-&gt;</span><span class="f">_parent</span> <span class="o">=</span> <span class="f">left</span><span class="p">;</span>
+	<span class="f">left</span><span class="o">-&gt;</span><span class="f">_n</span><span class="o">++</span><span class="p">;</span>
+
+	<span class="c">//3 右节点所有内容追加到左节点</span>
+	<span class="k">for</span> <span class="p">(</span><span class="t">size_t</span> <span class="f">i</span> <span class="o">=</span> <span class="n">0</span><span class="p">;</span> <span class="f">i</span> <span class="o">&lt;</span> <span class="f">right</span><span class="o">-&gt;</span><span class="f">_n</span><span class="p">;</span> <span class="f">i</span><span class="o">++</span><span class="p">)</span>
+	<span class="p">{</span>
+		<span class="f">left</span><span class="o">-&gt;</span><span class="f">_keys</span><span class="p">[</span><span class="f">left</span><span class="o">-&gt;</span><span class="f">_n</span><span class="p">]</span> <span class="o">=</span> <span class="f">right</span><span class="o">-&gt;</span><span class="f">_keys</span><span class="p">[</span><span class="f">i</span><span class="p">];</span>
+		<span class="f">left</span><span class="o">-&gt;</span><span class="f">_subs</span><span class="p">[</span><span class="f">left</span><span class="o">-&gt;</span><span class="f">_n</span> <span class="o">+</span> <span class="n">1</span><span class="p">]</span> <span class="o">=</span> <span class="f">right</span><span class="o">-&gt;</span><span class="f">_subs</span><span class="p">[</span><span class="f">i</span> <span class="o">+</span> <span class="n">1</span><span class="p">];</span>
+		<span class="k">if</span> <span class="p">(</span><span class="f">left</span><span class="o">-&gt;</span><span class="f">_subs</span><span class="p">[</span><span class="f">left</span><span class="o">-&gt;</span><span class="f">_n</span> <span class="o">+</span> <span class="n">1</span><span class="p">])</span>
+			<span class="f">left</span><span class="o">-&gt;</span><span class="f">_subs</span><span class="p">[</span><span class="f">left</span><span class="o">-&gt;</span><span class="f">_n</span> <span class="o">+</span> <span class="n">1</span><span class="p">]</span><span class="o">-&gt;</span><span class="f">_parent</span> <span class="o">=</span> <span class="f">left</span><span class="p">;</span>
+		<span class="f">left</span><span class="o">-&gt;</span><span class="f">_n</span><span class="o">++</span><span class="p">;</span>
+	<span class="p">}</span>
+
+	<span class="c">//4 父节点删掉对应key，释放右节点</span>
+	<span class="f">RemoveKey</span><span class="p">(</span><span class="f">parent</span><span class="p">,</span> <span class="f">leftIdx</span><span class="p">);</span>
+	<span class="k">delete</span> <span class="f">right</span><span class="p">;</span>
+
+	<span class="c">//5 特殊情况：父节点是根且空了，树要降高度</span>
+	<span class="k">if</span> <span class="p">(</span><span class="f">parent</span> <span class="o">==</span> <span class="f">_root</span> <span class="o">&amp;&amp;</span> <span class="f">parent</span><span class="o">-&gt;</span><span class="f">_n</span> <span class="o">==</span> <span class="n">0</span><span class="p">)</span>
+	<span class="p">{</span>
+		<span class="f">_root</span> <span class="o">=</span> <span class="f">left</span><span class="p">;</span>
+		<span class="f">left</span><span class="o">-&gt;</span><span class="f">_parent</span> <span class="o">=</span> <span class="k">nullptr</span><span class="p">;</span>
+		<span class="k">delete</span> <span class="f">parent</span><span class="p">;</span>
+		<span class="k">break</span><span class="p">;</span>
+	<span class="p">}</span>
+
+	<span class="c">//6 父节点可能也underflow，继续循环</span>
+	<span class="f">cur</span> <span class="o">=</span> <span class="f">parent</span><span class="p">;</span>
+<span class="p">}</span>
+</code></pre>
+    </div>
+
+    <div class="diagram">
+      <span class="cap">合并的完整推演：三个 key 变一个，树降一层</span>
+<pre>合并前：
+                [ 50 ]              ← parent
+               /      \
+          [ 20 ]      [ <span class="hl">cur = 空</span> ]    ← leftBrother=[20] 只有 1 个 key（= 最小值）
+                                      不能借！只能合
+
+① left = [20]，right = []，leftIdx = 0
+
+② 50 下移到 left 末尾：
+          [ 20 | 50 ]
+                  \
+                   right 的 _subs[0]（nullptr）
+
+③ right 是空的，循环不执行
+
+④ 父节点删 key，释放 right：
+                [ ]（<span class="hl">根空了！</span>）
+                  \
+               [ 20 | 50 ]
+
+⑤ parent 是根且空了 → <span class="hl-g">降高度</span>：
+               [ 20 | 50 ]        ← 新根
+
+<span class="hl-g">完成，树高从 2 降到 1 ✓</span>
+
+<span class="mut">数学验证：MinKeys + MinKeys + 1 = 1 + 1 + 1 = 3 = M，
+合并后正好填满一个节点，不会溢出。</span></pre>
+    </div>
+
+    <div class="box key">
+      <span class="box-title">合并的 6 步流程小结</span>
+      <p><strong>①</strong> 确定左右（有左兄弟就和左合，否则和右合）→ <strong>②</strong> 父 key 下移到左节点末尾 → <strong>③</strong> 右节点所有内容追加到左节点 → <strong>④</strong> 父节点删掉对应 key，释放右节点 → <strong>⑤</strong> 检查父节点是否是被清空的根，是则降高度 → <strong>⑥</strong> <code>cur = parent</code>，继续循环检查上层。</p>
+    </div>
+
+    <h3>8.5：为什么合并时"有左兄弟就一定和左合"？</h3>
+
+    <p>这不是随意的选择，而是为了让 <code>leftIdx</code> 的计算保持简单：</p>
+
+    <div class="tbl-wrap">
+      <table>
+        <thead>
+          <tr><th>情况</th><th>left</th><th>right</th><th>leftIdx</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>有左兄弟</td>
+            <td><code>leftbrother</code></td>
+            <td><code>cur</code></td>
+            <td><code>idx - 1</code>（父节点中夹在两者之间的 key 下标）</td>
+          </tr>
+          <tr>
+            <td>没有左兄弟（cur 是 <code>_subs[0]</code>）</td>
+            <td><code>cur</code></td>
+            <td><code>rightbrother</code></td>
+            <td><code>idx</code>（即 0）</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="diagram">
+      <span class="cap">leftIdx 的几何含义</span>
+<pre>        parent: [ k0 | k1 | k2 ]
+               /    |    |    \
+            subs0 subs1 subs2 subs3
+
+若 cur = subs2（idx=2），有左兄弟 subs1：
+    left = subs1, right = subs2, leftIdx = 1
+    <span class="hl">k1 就是夹在 subs1 和 subs2 之间的那把"钥匙"</span>
+
+若 cur = subs0（idx=0），没有左兄弟：
+    left = subs0, right = subs1, leftIdx = 0
+    <span class="hl">k0 就是夹在 subs0 和 subs1 之间的那把"钥匙"</span>
+
+<span class="hl-g">规律：leftIdx 永远是"左孩子下标"，父 key 就在这个位置。</span></pre>
+    </div>
+
+    <!-- ================= 9 ================= -->
+    <h2 id="s9">9：删除第 3 步：根降高度</h2>
+
+    <h3>9.1：为什么根是个特例</h3>
+
+    <p>B 树对"最少 key 数"的约束<strong>不适用于根节点</strong>。理由很简单：根节点没有兄弟，一旦它 underflow 了，无处可借、也无处可合。所以根的下限单独放开 —— 它甚至可以一个 key 都不剩。</p>
+
+    <p>当根变成空节点时，唯一合理的处理是：<strong>把它删掉，让唯一的孩子升为新根</strong>，树高减一。</p>
+
+    <div class="box key">
+      <span class="box-title">高度变化是对称的</span>
+      <p>插入时，根分裂 → 建新根 → <strong>树高 +1</strong>；<br>删除时，根空了 → 删旧根 → <strong>树高 -1</strong>。</p>
+      <p>整个 B 树的高度变化<strong>只发生在根节点上</strong>，其他节点无论怎么分裂、借位、合并，都不会改变树的层数。这就是 B 树"所有叶子在同一层"这条性质能一直保持的原因。</p>
+    </div>
+
+    <h3>9.2：降高度的代码</h3>
+
+    <p>这段代码就嵌在合并手段里（第 5 步），因为<strong>根变空只可能由合并引起</strong> —— 借位不会让父节点的 key 数减少。</p>
+
+    <div class="code-wrap">
+      <div class="code-head">
+        <span class="dots"><i></i><i></i><i></i></span>
+        <span class="fname">BTree.hpp</span>
+        <span class="lang">C++</span>
+      </div>
+<pre><code><span class="c">//5 特殊情况：父节点是根且空了，树要降高度</span>
+<span class="k">if</span> <span class="p">(</span><span class="f">parent</span> <span class="o">==</span> <span class="f">_root</span> <span class="o">&amp;&amp;</span> <span class="f">parent</span><span class="o">-&gt;</span><span class="f">_n</span> <span class="o">==</span> <span class="n">0</span><span class="p">)</span>
+<span class="p">{</span>
+	<span class="f">_root</span> <span class="o">=</span> <span class="f">left</span><span class="p">;</span>
+	<span class="f">left</span><span class="o">-&gt;</span><span class="f">_parent</span> <span class="o">=</span> <span class="k">nullptr</span><span class="p">;</span>
+	<span class="k">delete</span> <span class="f">parent</span><span class="p">;</span>
+	<span class="k">break</span><span class="p">;</span>
+<span class="p">}</span>
+</code></pre>
+    </div>
+
+    <div class="diagram">
+      <span class="cap">降高度全过程</span>
+<pre>降高度前：
+                  [ ]            ← 根空了（_n = 0）
+                    \
+                 [ 20 | 50 ]     ← left，唯一的幸存者
+
+执行：
+   _root = left              →  [ 20 | 50 ] 成为新根
+   left-&gt;_parent = nullptr   →  断开与旧根的父子关系
+   delete parent             →  释放旧根
+
+降高度后：
+                 [ 20 | 50 ]     ← 单节点，也是叶子
+                                     树高：2 → <span class="hl">1</span>
+
+查看整棵树：InOrder 输出依然是 20 50，<span class="hl-g">中序序列没变 ✓</span></pre>
+    </div>
+
+    <div class="box warn">
+      <span class="box-title">三行都不能少，顺序也不能错</span>
+      <p><code>left-&gt;_parent = nullptr</code> 必须写在 <code>delete parent</code> <strong>之前</strong>。如果先删了 parent，再通过 <code>left-&gt;_parent</code> 访问就是野指针；如果忘了这行，新根的 <code>_parent</code> 会指向已释放内存，下次删除操作直接崩。</p>
+    </div>
+
+    <h3>9.3：删除时的一条隐蔽规则</h3>
+
+    <p>还有一个细节：<strong>如果 <code>cur</code> 是根节点，循环直接不执行</strong>。</p>
+
+    <div class="code-wrap">
+      <div class="code-head">
+        <span class="dots"><i></i><i></i><i></i></span>
+        <span class="fname">BTree.hpp</span>
+        <span class="lang">C++</span>
+      </div>
+<pre><code><span class="k">while</span> <span class="p">(</span><span class="f">cur</span> <span class="o">!=</span> <span class="f">_root</span> <span class="o">&amp;&amp;</span> <span class="f">cur</span><span class="o">-&gt;</span><span class="f">_n</span> <span class="o">&lt;</span> <span class="f">MinKeys</span><span class="p">())</span>
+</code></pre>
+    </div>
+
+    <p>因为 <code>&amp;&amp;</code> 是<strong>短路求值</strong>：<code>cur == _root</code> 时，第二个条件根本不会被求值，循环体直接跳过。这意味着<strong>删根节点的 key 时不会触发任何修复</strong>，即使根只剩 0 个 key 也是合法的。</p>
+
+    <div class="diagram">
+      <span class="cap">根节点的两种合法"稀疏"状态</span>
+<pre>状态 1：根只有 1 个 key（还在合法范围）
+              [ 42 ]        ← _n = 1，虽然是"最小值"但作为根完全合法
+
+状态 2：根有 0 个 key（即将降高度）
+              [ ]           ← _n = 0
+                \
+             [ 20 | 50 ]    ← 下次操作后这里会触发降高度
+
+<span class="hl-g">注意：状态 2 只会在"合并后、降高度前"的瞬间短暂存在。</span>
+因为紧跟着的 if (parent == _root &amp;&amp; parent-&gt;_n == 0) 会立刻把它消掉。</pre>
+    </div>
+
+    <!-- ================= 10 ================= -->
+    <h2 id="s10">10：完整测试与运行结果</h2>
+
+    <h3>10.1：中序遍历</h3>
+
+    <div class="code-wrap">
+      <div class="code-head">
+        <span class="dots"><i></i><i></i><i></i></span>
+        <span class="fname">BTree.hpp</span>
+        <span class="lang">C++</span>
+      </div>
+<pre><code><span class="k">void</span> <span class="f">_InOrder</span><span class="p">(</span><span class="t">Node</span><span class="o">*</span> <span class="f">cur</span><span class="p">)</span>
+<span class="p">{</span>
+	<span class="k">if</span> <span class="p">(</span><span class="f">cur</span> <span class="o">==</span> <span class="k">nullptr</span><span class="p">)</span> <span class="k">return</span><span class="p">;</span>
+
+	<span class="c">//按照左根右的中序遍历</span>
+	<span class="k">for</span> <span class="p">(</span><span class="t">size_t</span> <span class="f">i</span> <span class="o">=</span> <span class="n">0</span><span class="p">;</span> <span class="f">i</span> <span class="o">&lt;</span> <span class="f">cur</span><span class="o">-&gt;</span><span class="f">_n</span><span class="p">;</span> <span class="f">i</span><span class="o">++</span><span class="p">)</span>
+	<span class="p">{</span>
+		<span class="f">_InOrder</span><span class="p">(</span><span class="f">cur</span><span class="o">-&gt;</span><span class="f">_subs</span><span class="p">[</span><span class="f">i</span><span class="p">]);</span>
+		<span class="f">cout</span> <span class="o">&lt;&lt;</span> <span class="f">cur</span><span class="o">-&gt;</span><span class="f">_keys</span><span class="p">[</span><span class="f">i</span><span class="p">]</span> <span class="o">&lt;&lt;</span> <span class="s">" "</span><span class="p">;</span>
+	<span class="p">}</span>
+	<span class="f">_InOrder</span><span class="p">(</span><span class="f">cur</span><span class="o">-&gt;</span><span class="f">_subs</span><span class="p">[</span><span class="f">cur</span><span class="o">-&gt;</span><span class="f">_n</span><span class="p">]);</span>
+<span class="p">}</span>
+
+<span class="k">void</span> <span class="f">InOrder</span><span class="p">()</span>
+<span class="p">{</span>
+	<span class="f">_InOrder</span><span class="p">(</span><span class="f">_root</span><span class="p">);</span>
+<span class="p">}</span>
+</code></pre>
+    </div>
+
+    <div class="box tip">
+      <span class="box-title">中序遍历为什么能验证 B 树</span>
+      <p>B 树本质上是一棵<strong>有序的多路搜索树</strong>：对任意节点，<code>_subs[i]</code> 里所有 key 都小于 <code>_keys[i]</code>，<code>_subs[i+1]</code> 里所有 key 都大于 <code>_keys[i]</code>。所以按"孩子0 → key0 → 孩子1 → key1 → ... → 孩子n"的顺序遍历，输出的必然是<strong>严格递增</strong>的序列。</p>
+      <p>反过来说：<strong>只要中序输出是有序的，插入和删除的结构调整就是正确的。</strong>这是一个非常好用的验证手段 —— 不用打印树形结构，看一维输出就够了。</p>
+    </div>
+
+    <h3>10.2：测试代码</h3>
+
+    <div class="code-wrap">
+      <div class="code-head">
+        <span class="dots"><i></i><i></i><i></i></span>
+        <span class="fname">main.cpp</span>
+        <span class="lang">C++</span>
+      </div>
+<pre><code><span class="pp">#include</span> <span class="s">&lt;iostream&gt;</span>
+<span class="pp">#include</span> <span class="s">&lt;windows.h&gt;</span>
+<span class="k">using</span> <span class="k">namespace</span> <span class="t">std</span><span class="p">;</span>
+<span class="pp">#include</span> <span class="s">"BTree.hpp"</span>
+
+
+<span class="k">void</span> <span class="f">Test</span><span class="p">()</span>
+<span class="p">{</span>
+	<span class="t">int</span> <span class="f">a</span><span class="p">[]</span> <span class="o">=</span> <span class="p">{</span> <span class="n">53</span><span class="p">,</span> <span class="n">139</span><span class="p">,</span> <span class="n">75</span><span class="p">,</span> <span class="n">49</span><span class="p">,</span> <span class="n">145</span><span class="p">,</span> <span class="n">36</span><span class="p">,</span> <span class="n">101</span> <span class="p">};</span>
+	<span class="t">BTree</span><span class="p">&lt;</span><span class="t">int</span><span class="p">,</span> <span class="n">3</span><span class="p">&gt;</span> <span class="f">t</span><span class="p">;</span>
+	<span class="k">for</span> <span class="p">(</span><span class="k">auto</span> <span class="f">e</span> <span class="o">:</span> <span class="f">a</span><span class="p">)</span>
+	<span class="p">{</span>
+		<span class="f">t</span><span class="p">.</span><span class="f">Insert</span><span class="p">(</span><span class="f">e</span><span class="p">);</span>
+	<span class="p">}</span>
+	<span class="f">cout</span> <span class="o">&lt;&lt;</span> <span class="s">"插入后中序遍历: "</span><span class="p">;</span>
+	<span class="f">t</span><span class="p">.</span><span class="f">InOrder</span><span class="p">();</span>
+
+	<span class="c">// ... 依次删除 53 / 75 / 36 / 49 / 101 / 139 / 145</span>
+	<span class="c">// ... 最后删除一个不存在的 999</span>
+<span class="p">}</span>
+
+<span class="t">int</span> <span class="f">main</span><span class="p">()</span>
+<span class="p">{</span>
+	<span class="f">Test</span><span class="p">();</span>
+<span class="p">}</span>
+</code></pre>
+    </div>
+
+    <h3>10.3：运行结果</h3>
+
+    <div class="code-wrap">
+      <div class="code-head">
+        <span class="dots"><i></i><i></i><i></i></span>
+        <span class="fname">Console Output</span>
+        <span class="lang">TEXT</span>
+      </div>
+<pre><code>插入后中序遍历: 36 49 53 75 101 139 145
+删除 53 后: 36 49 75 101 139 145
+删除 75 后: 36 49 101 139 145
+删除 36 后: 49 101 139 145
+删除 49 后: 101 139 145
+删除 101 后: 139 145
+删除 139 后: 145
+删除 145 后:
+删除 999(不存在): 失败
+</code></pre>
+    </div>
+
+    <p>结果完全符合预期：<strong>每次删除后序列依然严格递增，最终删空，删不存在的值返回 false。</strong></p>
+
+    <h3>10.4：用层序遍历看结构变化</h3>
+
+    <p>只看中序输出<b>只能验证"内容对不对"，验证不了"结构对不对"</b>。比如某个节点 key 数超出了 M-1，或者叶子不在同一层，中序输出可能依然有序。</p>
+
+    <p>所以我在 <code>BTree</code> 里加了一个按层打印的调试函数，把每一步的结构也打出来：</p>
+
+    <div class="code-wrap">
+      <div class="code-head">
+        <span class="dots"><i></i><i></i><i></i></span>
+        <span class="fname">BTree.hpp（调试用）</span>
+        <span class="lang">C++</span>
+      </div>
+<pre><code><span class="c">//按层打印，用来肉眼验证结构（调试用）</span>
+<span class="k">void</span> <span class="f">LevelOrder</span><span class="p">()</span>
+<span class="p">{</span>
+	<span class="k">if</span> <span class="p">(</span><span class="f">_root</span> <span class="o">==</span> <span class="k">nullptr</span><span class="p">)</span> <span class="k">return</span><span class="p">;</span>
+	<span class="t">queue</span><span class="p">&lt;</span><span class="t">Node</span><span class="o">*&gt;</span> <span class="f">q</span><span class="p">;</span>
+	<span class="f">q</span><span class="p">.</span><span class="f">push</span><span class="p">(</span><span class="f">_root</span><span class="p">);</span>
+	<span class="k">while</span> <span class="p">(</span><span class="o">!</span><span class="f">q</span><span class="p">.</span><span class="f">empty</span><span class="p">())</span>
+	<span class="p">{</span>
+		<span class="t">size_t</span> <span class="f">sz</span> <span class="o">=</span> <span class="f">q</span><span class="p">.</span><span class="f">size</span><span class="p">();</span>
+		<span class="k">while</span> <span class="p">(</span><span class="f">sz</span><span class="o">--</span><span class="p">)</span>
+		<span class="p">{</span>
+			<span class="t">Node</span><span class="o">*</span> <span class="f">cur</span> <span class="o">=</span> <span class="f">q</span><span class="p">.</span><span class="f">front</span><span class="p">();</span> <span class="f">q</span><span class="p">.</span><span class="f">pop</span><span class="p">();</span>
+			<span class="f">cout</span> <span class="o">&lt;&lt;</span> <span class="s">"["</span><span class="p">;</span>
+			<span class="k">for</span> <span class="p">(</span><span class="t">size_t</span> <span class="f">i</span> <span class="o">=</span> <span class="n">0</span><span class="p">;</span> <span class="f">i</span> <span class="o">&lt;</span> <span class="f">cur</span><span class="o">-&gt;</span><span class="f">_n</span><span class="p">;</span> <span class="f">i</span><span class="o">++</span><span class="p">)</span>
+			<span class="p">{</span>
+				<span class="k">if</span> <span class="p">(</span><span class="f">i</span><span class="p">)</span> <span class="f">cout</span> <span class="o">&lt;&lt;</span> <span class="s">"|"</span><span class="p">;</span>
+				<span class="f">cout</span> <span class="o">&lt;&lt;</span> <span class="f">cur</span><span class="o">-&gt;</span><span class="f">_keys</span><span class="p">[</span><span class="f">i</span><span class="p">];</span>
+			<span class="p">}</span>
+			<span class="f">cout</span> <span class="o">&lt;&lt;</span> <span class="s">"] "</span><span class="p">;</span>
+
+			<span class="k">for</span> <span class="p">(</span><span class="t">size_t</span> <span class="f">i</span> <span class="o">=</span> <span class="n">0</span><span class="p">;</span> <span class="f">i</span> <span class="o">&lt;=</span> <span class="f">cur</span><span class="o">-&gt;</span><span class="f">_n</span><span class="p">;</span> <span class="f">i</span><span class="o">++</span><span class="p">)</span>
+				<span class="k">if</span> <span class="p">(</span><span class="f">cur</span><span class="o">-&gt;</span><span class="f">_subs</span><span class="p">[</span><span class="f">i</span><span class="p">])</span> <span class="f">q</span><span class="p">.</span><span class="f">push</span><span class="p">(</span><span class="f">cur</span><span class="o">-&gt;</span><span class="f">_subs</span><span class="p">[</span><span class="f">i</span><span class="p">]);</span>
+		<span class="p">}</span>
+		<span class="f">cout</span> <span class="o">&lt;&lt;</span> <span class="f">endl</span><span class="p">;</span>  <span class="c">// 一层打完换行</span>
+	<span class="p">}</span>
+<span class="p">}</span>
+</code></pre>
+    </div>
+
+    <p>有了它，每次删除前后的结构都一目了然：</p>
+
+    <div class="code-wrap">
+      <div class="code-head">
+        <span class="dots"><i></i><i></i><i></i></span>
+        <span class="fname">Console Output（真实运行结果）</span>
+        <span class="lang">TEXT</span>
+      </div>
+<pre><code>插入后中序遍历: 36 49 53 75 101 139 145
+--- 结构 ---
+[75]
+[49] [139]
+[36] [53] [101] [145]
+
+删除 53 后: 36 49 75 101 139 145
+  结构: [75|139]
+[36|49] [101] [145]
+
+删除 75 后: 36 49 101 139 145
+  结构: [49|139]
+[36] [101] [145]
+
+删除 36 后: 49 101 139 145
+  结构: [139]
+[49|101] [145]
+
+删除 49 后: 101 139 145
+  结构: [139]
+[101] [145]
+
+删除 101 后: 139 145
+  结构: [139|145]
+
+删除 139 后: 145
+  结构: [145]
+
+删除 145 后:
+  结构: []
+
+删除 999(不存在): 失败
+</code></pre>
+    </div>
+
+    <h4>结构解读：插入 7 个数后的形态</h4>
+
+    <div class="diagram">
+      <span class="cap">插入 [53, 139, 75, 49, 145, 36, 101]，M=3 —— 程序实际输出</span>
+<pre>                          [ <span class="hl">75</span> ]                    ← 根
+                        /        \
+                  [ 49 ]          [ 139 ]
+                 /     \         /      \
+             [ 36 ]   [ 53 ]  [ 101 ]  [ 145 ]
+
+中序遍历：36 → 49 → 53 → 75 → 101 → 139 → 145   <span class="hl-g">✓ 有序</span>
+
+<span class="mut">所有叶子都在同一层 —— 这是 B 树"平衡"的直观体现。</span>
+<span class="mut">叶子层 4 个节点，每个 1 个 key，恰好等于 MinKeys。</span></pre>
+    </div>
+
+    <h4>删除 53：触发借位，根节点"吃"了一个 key</h4>
+
+    <p>53 在叶子层。删掉之后该叶子 <code>_n = 0 &lt; 1</code>，underflow。但这次左右兄弟都没得借（左右各只有 1 个 key = MinKeys），所以走<strong>合并</strong> —— 而合并把父节点 <code>[49]</code> 的 key 拉了下来，导致 <code>[49]</code> 空了，于是<strong>根节点降级，<code>[139]</code> 的 key 补位上来</strong>。</p>
+
+    <div class="diagram">
+      <span class="cap">Remove(53) 的实际结构变化</span>
+<pre>删之前：
+                          [ 75 ]
+                        /        \
+                  [ 49 ]          [ 139 ]
+                 /     \         /      \
+             [ 36 ]   [ <span class="hl">53</span> ]  [ 101 ]  [ 145 ]
+
+修复过程：
+   ① 叶子 [53] 删空 → underflow
+   ② 左右兄弟都只有 1 个 key，借不到 → 合并
+      left = [36]，right = []（cur），leftIdx = 0
+      父 key 49 下移 → left 变 [36|49]
+   ③ 父节点 [49] 空 → 它也是左孩子，和右兄弟 [139] 合并：
+      祖父 key 75 下移 → [49|75]，再拼上 [139] 的 key 139 和子树
+      <span class="hl">→ 新的 [49|75|139] 就位</span>
+   ④ 根 [75] 空了 → <span class="hl-g">降高度</span>
+
+删之后（程序输出）：
+                  [ <span class="hl-g">75 | 139</span> ]              ← 新根
+                 /         \
+          [ 36 | 49 ]     [ 101 ]  [ 145 ]
+
+中序遍历：36 49 75 101 139 145   <span class="hl-g">✓ 75 还在，只是换了个位置</span>
+
+<span class="mut">注意：75 原本是根上的 key，降高度后它成了新根的 key。</span>
+<span class="mut">这就是为什么"删除 53"却看起来像"结构大改"。</span></pre>
+    </div>
+
+    <div class="box key">
+      <span class="box-title">关键观察：删除一个叶子，可能引发多层连锁反应</span>
+      <p>删掉 <code>53</code> 这一个数字，触发了 <strong>2 次合并 + 1 次降高度</strong>：叶子层合并 → 中间层合并 → 根层降高度。整个过程里，树高从 3 降到 2。</p>
+      <p>这正是 B 树删除比插入复杂的原因：<strong>插入的连锁只向上"传"，而删除的连锁会同时改变上下两层的结构。</strong></p>
+    </div>
+
+    <h4>删除 75：又一次降高度</h4>
+
+    <div class="diagram">
+      <span class="cap">Remove(75) 的实际结构变化</span>
+<pre>删之前：
+                  [ 75 | 139 ]
+                 /      |      \
+          [ 36 | 49 ]  [ 101 ]  [ 145 ]
+
+75 在根上，不是叶子 → 用后继顶替
+   75 的后继 = _subs[1] 的最左节点 = <span class="hl">[101]</span> 里的 101? 
+   <span class="mut">不对，_subs[1] = [101]，它没有孩子，所以后继就是 101</span>
+   → 用 101 覆盖 75
+
+   根变成： [ 101 | 139 ]
+            /     |      \
+       [36|49] [101]   [ 145 ]
+                ↑ 去删这个叶子里的 101
+
+   叶子 [101] 删空 → underflow → 兄弟都只有 1 个 key
+   → 合并，根 key 下移，根空了 → <span class="hl-g">降高度</span>
+
+删之后（程序输出）：
+                        [ <span class="hl-g">49 | 139</span> ]
+                       /         \
+                  [ 36 ]   [ 101 | 145 ]
+
+中序遍历：36 49 101 139 145   <span class="hl-g">✓</span>
+<span class="mut">树高：3 → 2 → 3 层里的 key 重新分配</span></pre>
+    </div>
+
+    <h4>快速收敛：越删越简单</h4>
+
+    <div class="diagram">
+      <span class="cap">后续删除的结构变化（程序实际输出）</span>
+<pre>删除 36 后：  [ 139 ]           ← 树高降到 2
+             /       \
+        [49|101]    [ 145 ]
+
+删除 49 后：  [ 139 ]
+             /       \
+         [ 101 ]    [ 145 ]
+
+删除 101 后： [ 139 | 145 ]     ← 树高降到 1
+             <span class="mut">（叶子合并，根吸收了 145）</span>
+
+删除 139 后： [ 145 ]
+
+删除 145 后： [ ]               ← 空树
+
+<span class="hl-g">每一步都保持"叶子同层 + key 数合法"，结构完全正确 ✓</span></pre>
+    </div>
+
+    <div class="box key">
+      <span class="box-title">结论：中序遍历 + 层序遍历，双保险</span>
+      <p><strong>中序遍历</strong>验证"内容对不对"（有序性）；<strong>层序遍历</strong>验证"结构对不对"（同层齐平、节点 key 数在合法区间）。两者结合，B 树的实现就不需要靠手工推演来验证了。</p>
+      <p>我在写这篇博客时，一开始用纯手工推演画删除过程，<strong>连续画错了好几处</strong>（把 75 画丢了、把根节点猜错）。加上 <code>LevelOrder</code> 之后才发现真实结构和直觉差别很大。这个教训值得记下来：<strong>多层树结构的变化，不要靠脑补，让程序告诉你。</strong></p>
+    </div>
+
+    <!-- ================= 11 ================= -->
+    <h2 id="s11">11：复杂度与踩坑总结</h2>
+
+    <h3>11.1：复杂度分析</h3>
+
+    <div class="tbl-wrap">
+      <table>
+        <thead>
+          <tr><th>操作</th><th>树高</th><th>节点内查找</th><th>总复杂度</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>查找 Find</td><td rowspan="3"><code>O(log<sub>M</sub>N)</code></td><td rowspan="3">顺序扫描 <code>O(M)</code></td><td><code>O(M·log<sub>M</sub>N)</code></td></tr>
+          <tr><td>插入 Insert</td><td><code>O(M·log<sub>M</sub>N)</code></td></tr>
+          <tr><td>删除 Remove</td><td><code>O(M·log<sub>M</sub>N)</code></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p>注意这个复杂度看起来"不如"平衡二叉树的 <code>O(log N)</code>，但<strong>这里比较的是"内存中的比较次数"，而 B 树优化的是"磁盘 I/O 次数"</strong>：</p>
+
+    <div class="diagram">
+      <span class="cap">为什么 O(M·log_M N) 反而更快</span>
+<pre>节点的 M 个 key 是<span class="hl">连续存储</span>的，一次磁盘读取（读一个块）
+就把它们全部搬进内存了 —— 节点内的 M 次比较是<span class="hl-g">内存操作，几乎免费</span>。
+
+所以真正决定性能的是 <span class="hl">树高 log_M N</span>，也就是磁盘 I/O 次数。
+
+M = 1000、N = 10 亿：
+  树高 = log₁₀₀₀(10⁹) = <span class="hl-g">3</span>  →  最多 3 次磁盘 I/O
+  节点内 999 次比较全是内存操作，可忽略
+
+对比二叉平衡树：
+  树高 = log₂(10⁹) ≈ 30  →  30 次磁盘 I/O
+  <span class="hl">慢 10 倍</span></pre>
+    </div>
+
+    <div class="box key">
+      <span class="box-title">B 树的复杂度必须放在"内存 + 磁盘"两级存储模型下理解</span>
+      <p>只看比较次数的渐进阶，B 树确实吃亏。但真实场景里，<strong>一次磁盘 I/O ≈ 十万次内存访问</strong>。用"节点内多比较几百次"换"磁盘 I/O 少十几倍"，这笔买卖极其划算。</p>
+    </div>
+
+    <h3>11.2：踩坑记录</h3>
+
+    <h4>坑 1：key 数组开 M-1 导致越界</h4>
+
+    <p>最初按教科书写成 <code>_keys[M-1]</code>，插入时直接越界。改成 <code>_keys[M]</code> 后，"先插入、后分裂"的流程才成立。这个坑的本质是：<strong>教科书描述的是"稳定状态"，代码需要处理"过渡状态"</strong>。</p>
+
+    <h4>坑 2：分裂时忘了改孩子的 _parent</h4>
+
+    <p>分裂把右半边的 key 和孩子搬到 <code>brother</code>，但漏了同步更新 <code>_parent</code>。表现是插入一切正常、中序输出有序，<strong>但删除时找兄弟直接崩</strong> —— 因为 <code>cur-&gt;_parent</code> 还指着旧节点，<code>GetChildeIndex</code> 遍历不到 <code>cur</code>，返回 -1，然后 <code>parent-&gt;_subs[-1]</code> 越界。</p>
+
+    <div class="box danger">
+      <span class="box-title">教训：凡是"搬家"的地方，都要检查 _parent</span>
+      <p>代码里共有 4 处会移动孩子指针：分裂、借左、借右、合并。<strong>每一处搬完都必须紧跟一句 <code>xxx-&gt;_parent = 新父亲</code></strong>，并且要先判空（叶子节点的孩子是 nullptr）。</p>
+    </div>
+
+    <h4>坑 3：MinKeys 写成 M/2 - 1</h4>
+
+    <p>M=3 时两种写法都得 1，测试全过。但 M=5 时 <code>M/2 - 1 = 1</code>，正确值应该是 <code>(5+1)/2 - 1 = 2</code>。<strong>阈值偏小意味着允许节点更稀疏，破坏了"所有叶子同层"的性质</strong>，树会逐渐退化成链表。</p>
+
+    <h4>坑 4：借左兄弟时漏了 _subs[0] 的搬运</h4>
+
+    <p>右移循环处理的是 <code>_subs[1.._n+1]</code>，<code>_subs[0]</code> 不在循环范围内。如果忘了单独补 <code>cur-&gt;_subs[1] = cur-&gt;_subs[0]</code>，<code>_subs[0]</code> 就被新值覆盖，<strong>cur 最左边的整棵子树丢失</strong>。这个 bug 只会丢掉一部分数据，中序遍历却不报错（因为丢的是子树，不是单个 key），非常难查。</p>
+
+    <h4>坑 5：降高度时先 delete 后改 _parent</h4>
+
+    <p>顺序必须是 <code>_root = left</code> → <code>left-&gt;_parent = nullptr</code> → <code>delete parent</code>。反过来的话，<code>left-&gt;_parent</code> 已经是悬垂指针，写它等于写已释放内存。</p>
+
+    <h3>11.3：几个设计决策复盘</h3>
+
+    <div class="tbl-wrap">
+      <table>
+        <thead>
+          <tr><th>决策</th><th>选择</th><th>理由</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>是否存 <code>_parent</code></td>
+            <td>存</td>
+            <td>分裂向上、删除找兄弟都是常规操作，省掉维护栈的成本</td>
+          </tr>
+          <tr>
+            <td>非叶子删除用什么顶替</td>
+            <td>后继（右子树最左）</td>
+            <td>后继永远是所在节点的 <code>_keys[0]</code>，简化 <code>pos = 0</code></td>
+          </tr>
+          <tr>
+            <td>借位优先还是合并优先</td>
+            <td>优先借</td>
+            <td>借是局部操作，合会减少节点数并向上传播</td>
+          </tr>
+          <tr>
+            <td>合并时选哪边</td>
+            <td>有左兄弟就合左</td>
+            <td>让 <code>leftIdx = idx - 1</code> 的统一公式成立</td>
+          </tr>
+          <tr>
+            <td>Find 的返回值</td>
+            <td><code>pair&lt;Node*, int&gt;</code></td>
+            <td>一次查找同时服务判重、定位插入点、定位删除点</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>11.4：还能改进的地方</h3>
+
+    <ul>
+      <li><strong>节点内查找用二分。</strong>现在是 <code>O(M)</code> 顺序扫描，改成 <code>std::lower_bound</code> 是 <code>O(log M)</code>。不过 M 是常数，收益有限，代码可读性反而下降。</li>
+      <li><strong>析构函数缺失。</strong>当前实现没有写析构，存在内存泄漏。需要加一个后序遍历的 <code>_Destroy(Node*)</code>。</li>
+      <li><strong>拷贝构造/赋值未禁用。</strong>默认的浅拷贝会导致 double free，应该 <code>= delete</code> 掉。</li>
+      <li><strong>key 拷贝代价。</strong>插入时的 <code>K newkey = key</code> 对大对象（如长字符串）有拷贝开销，可改传引用。</li>
+      <li><strong>真正的磁盘版。</strong>要落到磁盘上，需要把 <code>_subs</code> 从指针改成"块号 + 读块/写块"，再加一个 LRU 缓冲池。这是 <code>BufferPool</code> 的活了。</li>
+    </ul>
+
+    <div class="box tip">
+      <span class="box-title">关于《C++11-plus-study-notes》</span>
+      <p>本文代码只用了 C++11 特性（模板、<code>auto</code>、范围 for、<code>pair</code> 统一初始化），<strong>没有用 C++17 的 structured binding 或 C++20 的 <code>concepts</code></strong>。这样在 Dev-C++ 5.11 这类老环境里也能直接编译，方便考场或教学场景复用。</p>
+    </div>
+
+    <!-- ================= 12 ================= -->
+    <h2 id="s12">12：B+ 树</h2>
+
+    <p>B+ 树是 B 树的变形，规则跟 B 树基本类似，但在 B 树的基础上做了几点关键改进。</p>
+
+    <h3>12.1：B+ 树的规则</h3>
+
+    <ol>
+      <li>分支节点<strong>不存数据</strong>，只存关键字（索引），数据全部下沉到叶子。</li>
+      <li>分支节点的<strong>子树指针个数与关键字个数相同</strong>（不是"孩子比 key 多一个"）。</li>
+      <li>分支节点的子树指针 <code>p[i]</code> 指向关键字值落在 <code>[k[i], k[i+1])</code> 区间内的子树。</li>
+      <li>所有叶子节点<strong>增加一个链接指针，串在一起</strong>。</li>
+      <li>所有关键字及其映射的数据<strong>都在叶子节点出现</strong>。</li>
+    </ol>
+
+    <div class="diagram">
+      <span class="cap">B 树 vs B+ 树的结构差异（同一个 key 集合）</span>
+<pre><span class="hl-b">B 树</span>：每个节点都能命中数据
+                 [ 30 | 60 ]
+                /     |      \
+         [10|20]   [40|50]   [70|80]
+         <span class="mut">↑ 数据散落在所有层，每层都可能是终点</span>
+
+<span class="hl-g">B+ 树</span>：数据全在叶子，内节点纯索引
+                 [ 30 | 60 ]              <span class="mut">← 只有 key，没有数据</span>
+                /     |      \
+      [10|20]     [40|50]     [70|80]
+         ↓            ↓            ↓
+      ┌────┐  →  ┌────┐  →  ┌────┐
+      │叶子│      │叶子│      │叶子│        <span class="hl">← 叶子串成链表</span>
+      └────┘      └────┘      └────┘
+      <span class="mut">数据 10,20   数据 40,50   数据 70,80</span>
+
+<span class="hl-g">关键：内节点的 30、60 在叶子里也会再出现一次（索引冗余）。</span></pre>
+    </div>
+
+    <h3>12.2：B+ 树的三个特性</h3>
+
+    <ol>
+      <li>所有关键字都出现在叶子节点的链表中，且<strong>链表中的节点是有序的</strong>。</li>
+      <li><strong>不可能在分支节点中命中</strong> —— 查找必须走到叶子才算成功。</li>
+      <li>分支节点相当于叶子节点的<strong>索引</strong>，叶子节点才是<strong>存储数据的数据层</strong>。</li>
+    </ol>
+
+    <div class="box key">
+      <span class="box-title">第 2 条决定了 B+ 树的查找性能是"稳定的"</span>
+      <p>B 树在最好情况下（key 恰好落在根上）1 次 I/O 就命中；B+ 树则<strong>无论找哪个 key，都必须走到叶子</strong>，也就是固定 <code>log_M N</code> 次 I/O。</p>
+      <p>听起来 B+ 树更慢？恰恰相反 —— <strong>稳定的 I/O 次数对数据库优化更重要</strong>。而 B+ 树内节点不存数据，同样一个磁盘块能塞下更多 key，<strong>树高反而更低</strong>，把这个"劣势"补了回来甚至反超。</p>
+    </div>
+
+    <h3>12.3：B+ 树的分裂</h3>
+
+    <p>B+ 树的分裂规则比 B 树简单，因为不涉及"数据往上提"：</p>
+
+    <ol class="steps">
+      <li>当一个节点满时，<b>申请一个新节点</b>。</li>
+      <li>将原节点中 <b>1/2 的数据复制到新节点</b>。</li>
+      <li>在<b>父节点中增加新节点的指针</b>；</li>
+    </ol>
+
+    <div class="diagram">
+      <span class="cap">B+ 树分裂：只影响原节点和父节点</span>
+<pre>分裂前（节点满了）：
+        [ 30 ]
+       /      \
+   [10|20|25]  [40]
+
+分裂后：
+        [ 30 | 20 ]              <span class="mut">← 20 的副本被复制进父节点当索引</span>
+       /     |      \
+   [10|20]  [25]    [40]
+    <span class="mut">↑ 注意 20 在两处都出现：叶子存数据，父节点存索引</span>
+
+<span class="hl-g">关键：分裂只影响原节点和父节点，不碰兄弟节点</span>
+<span class="hl-g">→ 所以 B+ 树不需要指向兄弟的指针</span></pre>
+    </div>
+
+    <div class="box tip">
+      <span class="box-title">为什么 B+ 树不需要兄弟指针</span>
+      <p>因为分裂时<strong>不会从兄弟那里借数据</strong> —— 它自己一分为二就完事了，兄弟节点完全不受影响。兄弟指针是 B* 树才需要的东西。</p>
+    </div>
+
+    <h3>12.4：范围查询 —— B+ 树的杀手锏</h3>
+
+    <p>这才是 B+ 树统治数据库的真正原因。</p>
+
+    <div class="diagram">
+      <span class="cap">查 30 &lt;= key &lt;= 60，两种树的差别</span>
+<pre><span class="hl-b">B 树</span>：叶子之间没有联系，取到 30 之后想拿下一个更大的值
+    → 只能<span class="hl">回到父节点，做中序遍历式的回溯</span>
+    → 需要反复在树中上下移动，磁盘 I/O 无法预测
+
+<span class="hl-g">B+ 树</span>：定位到 30 所在的叶子后
+    → <span class="hl-g">沿叶子链表直接往后扫</span>，一路 30 → 40 → 50 → 60
+    → 顺序 I/O，可以预读，性能极高
+
+<span class="hl">这就是为什么数据库都用 B+ 树：范围查询是最高频的操作。</span></pre>
+    </div>
+
+    <!-- ================= 13 ================= -->
+    <h2 id="s13">13：B* 树</h2>
+
+    <p>B* 树是 B+ 树的变形，它在 B+ 树的<strong>非根、非叶子节点</strong>上<strong>再增加了指向兄弟节点的指针</strong>。</p>
+
+    <div class="diagram">
+      <span class="cap">B* 树：内节点之间也串起来</span>
+<pre>B+ 树：只有<span class="hl-g">叶子层</span>有横向链表
+                 [ 30 | 60 ]
+                /     |      \
+      [10|20]     [40|50]     [70|80]
+         ↓            ↓            ↓
+      ┌────┐  →  ┌────┐  →  ┌────┐          <span class="hl-g">← 只有这里有链表</span>
+      └────┘      └────┘      └────┘
+
+B* 树：<span class="hl">内节点层也加上兄弟指针</span>
+            [ 30 ] ←——→ [ 60 ]              <span class="hl">← 新增的兄弟指针</span>
+           /     \      /     \
+      [10|20]  [40|50]  [70|80]
+         ↓        ↓        ↓
+      ┌────┐ → ┌────┐ → ┌────┐              <span class="hl-g">← 叶子链表还在</span>
+      └────┘   └────┘   └────┘</pre>
+    </div>
+
+    <h3>13.1：B* 树的分裂（和 B+ 树完全不同）</h3>
+
+    <p>B* 树的核心创新在于：<strong>节点满了先别急着分裂，先看看兄弟还有没有空位</strong>。</p>
+
+    <div class="diagram">
+      <span class="cap">B* 树分裂的两种分支</span>
+<pre>节点满了，怎么办？
+  │
+  ├─ ① 下一个兄弟<span class="hl-g">未满</span>？
+  │     → 把一部分数据<span class="hl-g">移到兄弟节点</span>
+  │     → 再在原节点插入关键字
+  │     → 最后<span class="hl">修改父节点中兄弟节点的关键字</span>
+  │        （因为兄弟的关键字范围变了）
+  │     <span class="mut">本质是"借位"，不新增节点</span>
+  │
+  └─ ② 兄弟<span class="hl">也满了</span>？
+        → 在原节点与兄弟节点<span class="hl">之间</span>增加新节点
+        → 三方各复制 <span class="hl-g">1/3</span> 的数据到新节点
+        → 在父节点增加新节点的指针
+        <span class="mut">本质是"一分为三"，而不是一分为二</span></pre>
+    </div>
+
+    <h3>13.2：为什么 B* 树空间利用率更高</h3>
+
+    <p>对比两者的分裂策略：</p>
+
+    <div class="tbl-wrap">
+      <table>
+        <thead>
+          <tr><th>树</th><th>分裂方式</th><th>结果</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>B+ 树</td>
+            <td>一分为二，各占 1/2</td>
+            <td>每次满都必然<strong>新增一个节点</strong></td>
+          </tr>
+          <tr>
+            <td>B* 树</td>
+            <td>兄弟未满 → 移数据不新增；<br>兄弟满了 → 一分为三，各占 1/3</td>
+            <td>新增节点的<strong>概率显著降低</strong></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="box key">
+      <span class="box-title">核心结论</span>
+      <p><strong>B* 树分配新节点的概率比 B+ 树要低，空间使用率更高。</strong></p>
+      <p>直观理解：B+ 树只要节点满了就分裂，节点数量增长得快、平均填充率低（因为刚分裂出来的两个节点都只有 50% 满）。B* 树则优先"挪一挪"填满兄弟，实在不行才一分为三 —— <strong>节点被使用得更充分</strong>，这就是"更丰满"的含义。</p>
+    </div>
+
+    <div class="box warn">
+      <span class="box-title">代价：实现复杂度上升</span>
+      <p>B* 树的每个内节点都要多存一个兄弟指针，分裂逻辑要分两种情况处理，还要额外维护父节点中兄弟的关键字范围。这些复杂度换来的是空间利用率，<strong>实际工程中用得远不如 B+ 树广泛</strong>。</p>
+    </div>
+
+    <!-- ================= 14 ================= -->
+    <h2 id="s14">14：B / B+ / B* 三者对比</h2>
+
+    <h3>14.1：一句话总结</h3>
+
+    <div class="diagram">
+      <span class="cap">三句话记住三种树</span>
+<pre><span class="hl-b">B 树</span>：   有序数组 + 平衡多叉树
+<span class="hl-g">B+ 树</span>：  有序数组链表 + 平衡多叉树
+<span class="hl">B* 树</span>：  一棵更丰满的、空间利用率更高的 B+ 树</pre>
+    </div>
+
+    <h3>14.2：完整对比表</h3>
+
+    <div class="tbl-wrap">
+      <table>
+        <thead>
+          <tr><th>对比项</th><th>B 树</th><th>B+ 树</th><th>B* 树</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>数据存放位置</td>
+            <td>每个节点都存数据</td>
+            <td>只有叶子存数据，内节点纯索引</td>
+            <td>同 B+ 树</td>
+          </tr>
+          <tr>
+            <td>内节点存什么</td>
+            <td>key + 数据</td>
+            <td>只有 key</td>
+            <td>只有 key + <strong>兄弟指针</strong></td>
+          </tr>
+          <tr>
+            <td>孩子数与 key 数</td>
+            <td>孩子比 key 多 1</td>
+            <td>孩子数 <strong>=</strong> key 数</td>
+            <td>同 B+ 树</td>
+          </tr>
+          <tr>
+            <td>叶子链表</td>
+            <td>无</td>
+            <td>有</td>
+            <td>有</td>
+          </tr>
+          <tr>
+            <td>能否在内节点命中</td>
+            <td>能</td>
+            <td><strong>不能</strong>，必须到叶子</td>
+            <td>不能</td>
+          </tr>
+          <tr>
+            <td>分裂策略</td>
+            <td>中间 key 上提，<br>分两半</td>
+            <td>复制 1/2 到新节点，<br>父节点加指针</td>
+            <td>兄弟未满则移数据；<br>兄弟满则各复制 1/3</td>
+          </tr>
+          <tr>
+            <td>范围查询</td>
+            <td>需中序回溯，较慢</td>
+            <td><strong>沿叶子链表扫，极快</strong></td>
+            <td>同 B+ 树</td>
+          </tr>
+          <tr>
+            <td>空间利用率</td>
+            <td>中</td>
+            <td>中</td>
+            <td><strong>高</strong></td>
+          </tr>
+          <tr>
+            <td>典型应用</td>
+            <td>文件系统<br>（NTFS、HFS+）</td>
+            <td><strong>数据库索引</strong><br>（MySQL InnoDB）</td>
+            <td>少量场景</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>14.3：为什么数据库最终选了 B+ 树</h3>
+
+    <p>不是 B+ 树"更先进"，而是它<strong>最匹配数据库的查询模式</strong>：</p>
+
+    <ol>
+      <li><strong>内节点不存数据 → 更矮。</strong>同样一个 16KB 页，B+ 树能塞下远多于 B 树的 key，树高更低，I/O 更少。</li>
+      <li><strong>叶子链表 → 范围查询快。</strong>数据库最高频的是 <code>BETWEEN</code>、<code>&gt;</code>、排序，这正是 B+ 树的主场。</li>
+      <li><strong>查询性能稳定。</strong>每次都要走到叶子，I/O 次数固定，便于优化和预估。</li>
+      <li><strong>全表扫描方便。</strong>直接遍历叶子链表即可，不用遍历整棵树。</li>
+    </ol>
+
+    <!-- ================= 15 ================= -->
+    <h2 id="s15">15：B 树的应用：MySQL 索引</h2>
+
+    <h3>15.1：什么是索引</h3>
+
+    <p>MySQL 官方定义：<strong>索引（index）是帮助 MySQL 高效获取数据的数据结构</strong>。简单说 —— <strong>索引就是数据结构</strong>。</p>
+
+    <p>数据库不仅帮用户管理数据，还维护着满足特定查找算法的数据结构，这些结构以某种方式引用数据，从而实现高级查找算法。</p>
+
+    <div class="box tip">
+      <span class="box-title">两个容易忽略的细节</span>
+      <ul style="margin-bottom:0">
+        <li>MySQL 中索引属于<strong>存储引擎级别</strong>的概念 —— 不同存储引擎的索引实现方式不同。</li>
+        <li>索引是<strong>基于表的</strong>，而不是基于数据库的。</li>
+      </ul>
+    </div>
+
+    <h3>15.2：MyISAM —— 非聚集索引</h3>
+
+    <p>MyISAM 是 MySQL 5.5.8 之前的默认引擎，不支持事务，支持全文检索，<strong>使用 B+Tree 作为索引结构</strong>。</p>
+
+    <div class="diagram">
+      <span class="cap">MyISAM：索引文件和数据文件分离</span>
+<pre>索引文件（B+Tree）                         数据文件
+        [ 30 | 60 ]
+       /     |      \
+  [10|20]  [40|50]  [70|80]
+     ↓        ↓        ↓
+  叶子 data 域存的是<span class="hl">数据记录的地址</span>
+     ↓
+   0x1A2B ──────────────→  <span class="hl-g">按地址去数据文件读取真实记录</span>
+                           <span class="mut">（Col1, Col2, Col3 ... 完整一行）</span>
+
+<span class="hl">MyISAM 的索引文件仅保存数据记录的地址</span>
+<span class="hl">主索引和辅助索引在结构上没有任何区别</span>
+     ├─ 主索引：key 必须唯一
+     └─ 辅助索引：key 可以重复
+
+这种索引方式叫「<span class="hl-g">非聚集索引</span>」</pre>
+    </div>
+
+    <p><strong>检索算法：</strong>先按 B+Tree 搜索算法搜索索引 → 若 Key 存在，取出其 data 域的值 → 以 data 域的值为地址，读取相应数据记录。</p>
+
+    <h3>15.3：InnoDB —— 聚集索引</h3>
+
+    <p>InnoDB 支持事务，面向在线事务处理（OLTP），从 MySQL 5.5.8 起成为默认引擎，支持 B+ 树索引、全文索引、哈希索引。</p>
+
+    <p>但 InnoDB 的 B+Tree 实现方式与 MyISAM <strong>截然不同</strong>，有两个核心区别：</p>
+
+    <h4>区别一：数据文件本身就是索引文件</h4>
+
+    <div class="diagram">
+      <span class="cap">InnoDB：叶节点包含完整数据记录</span>
+<pre>MyISAM：索引文件  +  数据文件   <span class="mut">（两个文件，分离）</span>
+InnoDB：<span class="hl-g">数据文件本身就是按 B+Tree 组织的索引</span>
+
+        [ 30 | 60 ]                 ← 内节点：只有主键索引
+       /     |      \
+  [10|20]  [40|50]  [70|80]
+     ↓        ↓        ↓
+  叶节点的 data 域<span class="hl-g">保存了完整的数据记录</span>
+     ↓
+  (10, '张三', ...)  <span class="hl">← 直接就是一行数据，不用再跳转</span>
+
+索引的 key 是数据表的<span class="hl">主键</span>
+→ 所以 InnoDB 表数据文件本身就是「<span class="hl-g">主索引</span>」
+
+这种索引叫做「<span class="hl-g">聚集索引</span>」（聚簇索引）</pre>
+    </div>
+
+    <div class="box warn">
+      <span class="box-title">InnoDB 要求表必须有主键</span>
+      <p>因为数据文件本身要按主键聚集，<strong>没有主键就没法组织这棵树</strong>。（MyISAM 可以没有主键）</p>
+      <p>如果没有显式指定主键，MySQL 会：</p>
+      <ol style="margin-bottom:0">
+        <li>自动选择一个<strong>可以唯一标识数据记录的列</strong>作为主键；</li>
+        <li>如果不存在这种列，则自动生成一个<strong>隐含字段</strong>作为主键 —— 长度为 6 字节，类型为长整型。</li>
+      </ol>
+    </div>
+
+    <h4>区别二：辅助索引的 data 域存的是主键值</h4>
+
+    <div class="diagram">
+      <span class="cap">辅助索引的两步检索</span>
+<pre>在 Col2 上建辅助索引：
+
+  辅助索引的叶子 data 域存的是<span class="hl">主键值</span>，<span class="hl">而不是地址</span>
+     ↓
+  <span class="hl-b">第 1 步</span>：检索辅助索引 → 拿到主键值
+     ↓
+  <span class="hl-b">第 2 步</span>：用主键到主索引中再检索一次 → 拿到完整记录
+
+<span class="hl">这叫「回表」</span>。辅助索引搜索需要检索<span class="hl">两遍索引</span>。
+
+对比 MyISAM：辅助索引直接存地址，<span class="hl-g">一次就够</span></pre>
+    </div>
+
+    <div class="box key">
+      <span class="box-title">聚集索引的权衡</span>
+      <p><strong>优势</strong>：主键搜索十分高效 —— 叶子节点直接就是整行数据，一次 B+Tree 查找搞定。</p>
+      <p><strong>代价</strong>：辅助索引搜索需要"回表"，检索两遍索引。所有辅助索引都引用主键作为 data 域，这也意味着<strong>主键不宜过长</strong>（否则每个辅助索引都要额外存一份）。</p>
+    </div>
+
+    <h3>15.4：本篇文章的实现 vs MySQL 的真实实现</h3>
+
+    <div class="tbl-wrap">
+      <table>
+        <thead>
+          <tr><th>维度</th><th>本文实现</th><th>MySQL InnoDB</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>树的类型</td><td>B 树（经典版）</td><td>B+ 树</td></tr>
+          <tr><td>节点存储</td><td>内存指针 <code>Node*</code></td><td>磁盘页（16KB）</td></tr>
+          <tr><td>孩子定位</td><td>指针直接跳转</td><td><strong>页号 + 缓冲池</strong>读写</td></tr>
+          <tr><td>数据的形态</td><td>只有一个 <code>K</code> 值</td><td>完整数据行 / 主键值</td></tr>
+          <tr><td>删除策略</td><td>真正删除 + 借位合并</td><td>多数情况只做标记删除</td></tr>
+          <tr><td>叶子节点</td><td>各自独立</td><td>双向链表串联</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p>本文实现的这棵 B 树，<strong>把最核心的结构调整逻辑（分裂、借位、合并、升降高度）都走通了</strong>。要变成真正的磁盘版，还需要把 <code>_subs</code> 从内存指针改成"页号 + 读页/写页"，再加上一个 LRU 缓冲池来减少实际 I/O —— 那属于 <code>BufferPool</code> 的范畴了。</p>
+
+    <!-- ================= 小结 ================= -->
+    <div class="summary">
+      <h3 style="border:none;padding-left:0;margin-top:0">小结：B 树其实就三件事</h3>
+      <p>把 B 树的部分压缩成三句话：</p>
+      <ul>
+        <li><strong>查找</strong>靠"节点内线性扫描 + 沿孩子下降"，返回值顺便服务插入和删除。</li>
+        <li><strong>插入</strong>永远发生在叶子，满了就从中间裂开、把中间 key 往上顶，顶到根就长高。</li>
+        <li><strong>删除</strong>先把非叶子转成叶子，再靠"借位优先、合并兜底"修 underflow，合到根空了就降高度。</li>
+      </ul>
+      <p style="margin-top:14px">真正难的不是这三件事本身，而是<strong>所有涉及"孩子搬家"的地方都要同步维护 <code>_parent</code></strong>。理解了这一点，B 树的代码就没有黑盒了。</p>
+
+      <h3 style="border:none;padding-left:0;margin-top:22px">B / B+ / B* 一句话带走</h3>
+      <ul>
+        <li><strong>B 树</strong>：有序数组 + 平衡多叉树，数据散落各层，删除要借位合并。</li>
+        <li><strong>B+ 树</strong>：有序数组链表 + 平衡多叉树，数据全在叶子层、叶子串成链表，内节点纯索引 —— 范围查询的王者，数据库标配。</li>
+        <li><strong>B* 树</strong>：B+ 树的"丰满版"，内节点再加兄弟指针，分裂时优先挪数据、实在不行一分为三，空间利用率更高但实现复杂。</li>
+      </ul>
+
+      <p style="margin-bottom:0;margin-top:14px">选型没有绝对优劣，只有匹配场景：<strong>要范围查询和高扇出，选 B+ 树；要极致空间利用率且能承受实现复杂度，才考虑 B* 树。</strong></p>
+    </div>
+
+    <div class="foot">
+      <span>代码环境：Visual Studio 2022 / C++11 · M=3 验证通过</span>
+      <span>BTree.hpp · main.cpp</span>
+    </div>
+
+  </main>
+</div>
+
+<button id="toTop" title="回到顶部">↑</button>
+
+<script>
+(function () {
+  // 返回顶部
+  var btn = document.getElementById('toTop');
+  window.addEventListener('scroll', function () {
+    if (window.scrollY > 400) btn.classList.add('show');
+    else btn.classList.remove('show');
+  });
+  btn.addEventListener('click', function () {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  });
+
+  // 目录高亮
+  var links = Array.prototype.slice.call(document.querySelectorAll('.sidebar a'));
+  var targets = links.map(function (a) {
+    return document.querySelector(a.getAttribute('href'));
+  }).filter(Boolean);
+
+  if (!('IntersectionObserver' in window)) return;
+
+  var visible = {};
+  var obs = new IntersectionObserver(function (entries) {
+    entries.forEach(function (e) {
+      visible[e.target.id] = e.isIntersecting ? e.intersectionRatio : 0;
+    });
+
+    var bestId = null, best = 0;
+    Object.keys(visible).forEach(function (id) {
+      if (visible[id] > best) { best = visible[id]; bestId = id; }
+    });
+    // 若当前视口内没有标题，取最后一个已经越过的标题
+    if (!bestId) {
+      var y = window.scrollY + 120, last = null;
+      targets.forEach(function (t) { if (t.offsetTop <= y) last = t.id; });
+      bestId = last;
+    }
+    links.forEach(function (a) {
+      a.classList.toggle('active', a.getAttribute('href') === '#' + bestId);
+    });
+  }, { rootMargin: '-70px 0px -60% 0px', threshold: [0, 0.25, 0.5, 1] });
+
+  targets.forEach(function (t) { obs.observe(t); });
+})();
+</script>
+</body>
+</html>

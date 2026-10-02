@@ -87,3 +87,42 @@ bool canWinInOneMove(int mask, int m, int target)
 	}
 	return false;
 }
+
+// 一行有 n 个座位，枚举【所有】"没有两个学生左右相邻"的坐法
+// 输出：每个坐法的二进制 + 坐了几个人
+void printRowPatterns(int n)
+{
+	for (int mask = 0; mask < (1 << n); mask++)
+	{
+		if ((mask & (mask << 1)) == 0)
+		{
+			printBinary(mask,n);
+		}
+	}
+}
+
+// 上一行 prev、这一行 cur，两行能不能同时存在（n 个座位）
+bool rowOK(int prev, int cur, int n)
+{
+	return (cur & ((prev << 1) | (prev >> 1))) == 0;
+}
+
+// 一行椅子（'.' 好 / '#' 坏）-> 坏椅子的 mask
+int rowToBad(string s)
+{
+	int mask = 0;
+	for (int i = s.size()-1;i>=0;i--)
+	{
+		if (s[i] == '#')
+		{
+			mask = mask | (1 << i);
+		}
+	}
+	return mask;
+}
+
+// 坐法 mask 在这一行合法吗（没坐在坏椅子上）
+bool rowSeatOK(int mask, int bad)
+{
+	return (mask & bad) == 0;
+}
