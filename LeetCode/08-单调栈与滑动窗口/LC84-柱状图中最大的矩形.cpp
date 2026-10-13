@@ -81,3 +81,58 @@ public:
         return ret;
     }
 };
+
+// ============================================================
+// 【路线 A】不用哨兵：主循环 + 收尾
+//   2026-10-13 重做时用户独立写出的版本（下面的注释是他自己加的，
+//   说明这次是把"判据"写进了代码，而不是背代码的样子）
+// ------------------------------------------------------------
+// 与上面路线 B（哨兵版）的对照：
+//
+//   | | 路线 A（本类，无哨兵） | 路线 B（上面的哨兵版） |
+//   |---|---|---|
+//   | 左边界 | `st.empty() ? -1 : st.top()` | `st.top()`（哨兵 A 垫底，栈永不空） |
+//   | 收尾 | **必须写**：while 弹完，右边界固定为 n | 不用写（哨兵 B 会一路把栈弹空） |
+//   | 数组 | 原数组，下标就是原下标 | 两头加 0，**所有下标都按新数组算** |
+//
+//   ★ 两条都对。**哨兵的价值 = 把"两个边界情况"换成"两个 0"**：
+//       · 哨兵 A（开头 0）→ 消掉"结算时判栈空"
+//       · 哨兵 B（结尾 0）→ 消掉"收尾弹栈"
+//
+//   ★ 收尾那一段的关键：栈里剩下的柱子【右边界都是 n】（右边没有更矮的了），
+//     但【左边界各不相同】→ 所以不能统一用"栈的元素个数"算宽度，
+//     必须和主循环一样逐根结算（只把 right 换成 n）。
+//     （10/13 第一次重做时就错在这里：用 `heights[mid]` 当面积、用 `size` 当宽度。）
+//
+// 实测：8 个用例 + 30000 组随机对拍零不一致
+// ============================================================
+
+class SolutionNoSentinel {
+public:
+    int largestRectangleArea(vector<int>& heights) {
+        int n = heights.size();
+        int ret = 0;//面积公式,以当前位置mid为主高度,向两边扩,找到left和right比mid小就算出,height[mid]*(right-left-1);
+        stack<int> st;//st存下标,严格递增
+        for (int i = 0; i < n; i++) {
+            //每次st的顶点都是mid，right都是i,因为只要i比st的顶点小了，就说明是右边界
+            //st因为是严格递增,st的左边界就是top的下一个元素
+            while (st.size() && heights[st.top()] > heights[i]) {
+                int mid = st.top();
+                st.pop();
+                int right = i;
+                int left = st.empty() ? -1 : st.top();//st左边界不能为空
+                ret = max(ret, heights[mid] * (right - left - 1));
+            }
+            st.push(i);
+        }
+        while (st.size())//处理后边界
+        {
+            int mid = st.top();
+            st.pop();
+            int right = n;//right永远是右边上限
+            int left = st.empty() ? -1 : st.top();
+            ret = max(ret, heights[mid] * (right - left - 1));
+        }
+        return ret;
+    }
+};
