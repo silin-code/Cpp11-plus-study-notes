@@ -103,3 +103,45 @@ public:
         return vector<int>(ret.begin() + k - 1, ret.end());
     }
 };
+
+// ============================================================
+// 【写法二】用 push_back + 截取（2026-10-17 无提示重做写的版本，注释为原话）
+// ------------------------------------------------------------
+// 与上面写法一的差别：
+//   · ret 用 push_back 边算边加（不预分配），且【每轮都 push】
+//   · 因为前 k-1 轮"窗口还没成形"，ret 的前 k-1 个是无效值
+//     → 返回时截掉前面 k-1 个：`ret.begin() + (k-1)`
+// ------------------------------------------------------------
+// ★ 写法二本次踩的坑：`right++` 的位置决定判断里 right 是【旧值还是新值】
+//     right++ 在 push 后立刻  →  判断时 right 已是新值  →  `q.front() < right - k`  ✓
+//     right++ 在循环末尾      →  判断时 right 还是旧值  →  必须 `q.front() <= right - k`
+//   两者差 1。实测用 `<` 配合末尾的 right++：5 个用例错 3 个
+//   （[9,1,1,1,1]→[9,9,1]、[1,-1]→[1,1]、[7,2,4]→[7,7]），
+//   而官方样例 [1,3,-1,-3,5,3,6,7] 恰好对 —— 因为 5 和 7 把前面全弹光，掩盖了"晚弹一格"。又一例「能过≠对」。
+// ============================================================
+
+class SolutionV2 {
+public:
+    vector<int> maxSlidingWindow(vector<int>& nums, int k) {
+        int n = nums.size();
+        deque<int> q; // deque存下标
+        // front需要判断是否合法，且是最大的值
+        // 何时推入?只需要back的值比当前值小就推入
+        // back淘汰比最后的还小的
+        int right = 0;
+        vector<int> ret;
+        while (right < n) {
+            // 最后需要留下的是最大的值,最小的全部pop
+            while (q.size() && nums[q.back()] < nums[right]) {
+                q.pop_back();
+            }
+            q.push_back(right);
+            // 左判断是否合法
+            if (q.front() <= right - k)   // ★ 修正：< 改 <=（因 right++ 挪到了循环末尾）
+                q.pop_front();
+            ret.push_back(nums[q.front()]);
+            right++;
+        }
+        return vector<int>(ret.begin() + k-1, ret.end());
+    }
+};
