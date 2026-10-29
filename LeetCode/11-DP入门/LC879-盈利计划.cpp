@@ -105,22 +105,34 @@ public:
 };
 
 // ============================================================
-// 【二维压缩版】（滚掉 i，人数 j 和利润 k 都倒序）
+// 【二维压缩版】—— 2026-10-29 用户写的正式版
 // ------------------------------------------------------------
-// class Solution {
-// public:
-//     int profitableSchemes(int n, int minProfit, vector<int>& group, vector<int>& profit) {
-//         const long long MOD = 1000000007;
-//         vector<vector<long long>> dp(n + 1, vector<long long>(minProfit + 1, 0));
-//         for (int j = 0; j <= n; j++) dp[j][0] = 1;
-//
-//         for (int i = 0; i < (int)group.size(); i++) {
-//             int g = group[i], p = profit[i];
-//             for (int j = n; j >= g; j--)              // ★ 倒序
-//                 for (int k = minProfit; k >= 0; k--)  // ★ 倒序
-//                     dp[j][k] = (dp[j][k] + dp[j - g][max(0, k - p)]) % MOD;
-//         }
-//         return (int)dp[n][minProfit];
-//     }
-// };
+// 滚掉 i 这一维：dp[j][k] 直接原地更新
+//   · 人数 j 倒序、利润 k 倒序（01 背包）
+//   · 「不选第 i 个」不用写 —— dp[j][k] 本来就存着上一轮的值，
+//     += 只是把「选第 i 个」的方案数加上去
+//   · 每步取模
 // ============================================================
+
+class Solution1D {
+public:
+    int profitableSchemes(int n, int minProfit, vector<int>& group, vector<int>& profit) {
+        const unsigned long long MOD = 1000000007ULL;
+        int size = group.size();
+
+        vector<vector<unsigned long long>> dp(n + 1,
+            vector<unsigned long long>(minProfit + 1, 0));
+
+        for (int i = 0; i <= n; i++) dp[i][0] = 1;      // 利润至少 0
+
+        for (int i = 1; i <= size; i++) {
+            int g = group[i - 1], p = profit[i - 1];
+            for (int j = n; j >= g; j--) {              // ★ 人数倒序
+                for (int k = minProfit; k >= 0; k--) {  // ★ 利润倒序
+                    dp[j][k] = (dp[j][k] + dp[j - g][max(0, k - p)]) % MOD;
+                }
+            }
+        }
+        return (int)dp[n][minProfit];
+    }
+};
