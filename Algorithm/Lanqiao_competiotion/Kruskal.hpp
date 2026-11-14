@@ -63,14 +63,14 @@ struct Edge {
     int u, v, w;
 };
 
-bool cmp(const Edge& e1,const Edge& e2)
+inline bool cmp(const Edge& e1,const Edge& e2)
 {
     return e1.w < e2.w;
 }
 // ------------------------------------------------------------
 // 返回最小生成树总权值；不连通返回 -1
 // ------------------------------------------------------------
-long long kruskal(int n, vector<Edge>& edges) {
+inline long long kruskal(int n, vector<Edge>& edges) {
 
     sort(edges.begin(), edges.end(),cmp);
 

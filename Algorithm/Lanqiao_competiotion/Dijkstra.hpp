@@ -78,7 +78,7 @@ using namespace std;
 // 别用 LLONG_MAX（9.2e18）——它 + w 直接绕回负数。
 const long long INF = 0x3f3f3f3f3f3f3f3fLL;
 
-vector<long long> dijkstra(int n, const vector<vector<pair<int, int>>>& g, int src) {
+inline vector<long long> dijkstra(int n, const vector<vector<pair<int, int>>>& g, int src) {
     // dist[v] = src 到 v 的【当前已知】最短距离。
     // "当前已知"四个字很重要：过程中它会不断变小，不是一开始就定死的。
     vector<long long> dist(n, INF);
@@ -139,7 +139,7 @@ vector<long long> dijkstra(int n, const vector<vector<pair<int, int>>>& g, int s
 //   undirected = false（默认）-> 有向边 u -> v
 //   undirected = true         -> 无向边 u <-> v
 // ============================================================
-void addEdge(vector<vector<pair<int, int>>>& g, int u, int v, int w, bool undirected = false) {
+inline void addEdge(vector<vector<pair<int, int>>>& g, int u, int v, int w, bool undirected = false) {
     g[u].push_back({v, w});                        // 正向边
     if (undirected) g[v].push_back({u, w});        // 反向边（无向图才有）
 }
