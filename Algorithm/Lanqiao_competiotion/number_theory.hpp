@@ -138,3 +138,17 @@ inline vector<bool> sieve(int n) {
     }
     return isPrime;
 }
+
+//求(a^b % mod)
+inline long long qpow(long long a, long long b, long long mod)
+{
+    long long ret = 1 % mod;
+    a %= mod;
+    while (b)
+    {
+        if (b & 1) ret = ret * a % mod;
+        a = a * a % mod;
+        b >>= 1;
+    }
+    return ret;
+}
