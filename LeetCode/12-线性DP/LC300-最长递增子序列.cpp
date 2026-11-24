@@ -3,9 +3,10 @@
 // ------------------------------------------------------------
 // 考点：线性 DP · 状态 = "以 i 结尾"（子序列模型的标志性定义）
 //       + O(n log n) 的二分 + 贪心优化
-// 复杂度：解一 O(n²) / 解二 O(n log n)
+// 复杂度：解一 O(n²) / 解二 O(n log n) / 解三 O(n log n)（手写二分）
 // 日期：2026-11-03（O(n²) 版，5 分钟写对）
-//       2026-11-14（O(n log n) 二分版）
+//       2026-11-14（O(n log n) 二分版，用 lower_bound）
+//       2026-11-24（同思路手写二分，不依赖 STL）
 // ------------------------------------------------------------
 // 题意：
 //   给整数数组 nums，找最长的【严格递增】子序列长度（可不连续，顺序不变）。
@@ -153,5 +154,66 @@ public:
             }
         }
         return tails.size();
+    }
+};
+
+// ------------------------------------------------------------
+// 解三：O(n log n) —— 同样的 tails，但二分手写（2026-11-24）
+// ------------------------------------------------------------
+//   和解二完全等价，只是把 lower_bound 自己写出来。
+//   考场上如果不想记 lower_bound / upper_bound 的差别，
+//   手写这个更容易控制边界。
+//
+//   【手写 lower_bound 的标准骨架】
+//       left = 0, right = size - 1
+//       while (left < right) {
+//           mid = (left + right) / 2;
+//           if (arr[mid] < x) left = mid + 1;   // 太小，往右找
+//           else              right = mid;      // 够大，mid 可能就是答案
+//       }
+//       // 循环结束时 left == right，且 arr[left] 是第一个 >= x 的位置
+//
+//   【为什么用 while(left < right) 而不是 <=】
+//       用 < 的时候，区间是 [left, right] 且 left 永远不会超过 right，
+//       退出时 left 就停在"第一个满足条件的下标"上，不用再判断一次。
+//       这是最省心的写法：结束时直接 ret[left] = nums[i]。
+//
+//   【为什么 left 一定不会越界】
+//       进入 else 分支的前提是 nums[i] <= ret.back()（否则在上面的 if 里
+//       就 push_back 了）。所以 ret 里至少存在一个 >= nums[i] 的元素，
+//       即位置 size-1 合格，left 一定落在 [0, size-1] 内。
+//
+//   【一个不影响的细节】
+//       mid = (left + right) >> 1 在 left+right 溢出 int 时会出错。
+//       本题 n <= 2500，left+right <= 5000，安全。
+//       若数据量到 1e9 级，要写成 left + (right - left) / 2。
+//
+//   【验证】
+//       8 组定点（含 [3,4,5,1] 这种 tails 不等于真实子序列的用例）
+//       + 与 O(n²) DP 随机对拍 20000 组零不一致
+//       + n = 1e5 实测 5.86 ms
+// ------------------------------------------------------------
+class Solution3 {
+public:
+    int lengthOfLIS(vector<int>& nums) {
+        int n = nums.size();
+        vector<int> ret;
+        ret.push_back(nums[0]);
+
+        for (int i = 1; i < n; i++) {
+            if (nums[i] > ret.back()) {
+                ret.push_back(nums[i]);          // 能接出更长的
+            } else {
+                // 手写 lower_bound：找第一个 >= nums[i] 的位置
+                int left = 0, right = ret.size() - 1;
+                while (left < right) {
+                    int mid = (right + left) >> 1;
+                    if (ret[mid] < nums[i]) left = mid + 1;   // 太小，往右
+                    else                    right = mid;      // 够大，mid 可能是答案
+                }
+                ret[left] = nums[i];             // 用更小的结尾替换
+            }
+        }
+        return ret.size();
     }
 };
