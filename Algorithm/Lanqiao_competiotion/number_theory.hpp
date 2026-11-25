@@ -1,6 +1,7 @@
 #pragma once
 #include <cstdlib>
 #include <vector>
+#include <utility>
 using namespace std;
 
 // ============================================================
@@ -194,4 +195,70 @@ inline vector<int> linearSieve(int n) {
         }
     }
     return primes;
+}
+
+// ------------------------------------------------------------
+// spfTable(n)：最小质因子表
+// ------------------------------------------------------------
+//   返回 spf[0..n]，其中
+//       spf[x] = x 的最小质因子（x 是质数时就是它自己）
+//       spf[0] = spf[1] = 0（没有最小质因子）
+//
+//   和 linearSieve 相比只多两处赋值：
+//       if (!isComp[i]) { primes.push_back(i); spf[i] = i; }   ← 质数：自己
+//       spf[i * p] = p;                                        ← 合数：p
+//
+//   为什么 spf[i*p] 一定是 p？
+//     线性筛保证「合数只被最小质因子划到」（见 linearSieve 的证明）。
+//     所以能走到 spf[i*p] = p 这一句，p 必然是 i*p 的最小质因子。
+//
+//   空间 O(n)，时间 O(n)。
+// ------------------------------------------------------------
+inline vector<int> spfTable(int n) {
+    vector<int> spf(n + 1, 0);
+    vector<int> primes;
+    vector<bool> isComp(n + 1, false);
+
+    for (int i = 2; i <= n; i++) {
+        if (!isComp[i]) {
+            primes.push_back(i);
+            spf[i] = i;                    // 质数的最小质因子是自己
+        }
+        for (int p : primes) {
+            if ((long long)i * p > n) break;
+            isComp[i * p] = true;
+            spf[i * p] = p;                // 合数的最小质因子是 p
+            if (i % p == 0) break;
+        }
+    }
+    return spf;
+}
+
+// ------------------------------------------------------------
+// factorize(x, spf)：质因数分解
+// ------------------------------------------------------------
+//   返回 {质因子, 指数} 列表，按质因子升序。
+//       360     -> {{2,3}, {3,2}, {5,1}}     即 2^3 * 3^2 * 5
+//       97      -> {{97,1}}                  质数
+//       1       -> {}                        空
+//
+//   ★ 前提：spf 必须是用 spfTable(n) 建的表，且 x <= n。
+//     否则 spf[x] 可能是 0，while 里会除以 0 或死循环。
+//
+//   流程：每轮取 x 的最小质因子 p，把 x 里所有的 p 除干净，记下个数。
+//   复杂度 O(log x)：每除一次 p，x 至少减半，最多 log2(x) 轮。
+// ------------------------------------------------------------
+inline vector<pair<int, int>> factorize(int x, const vector<int>& spf) {
+    vector<pair<int, int>> res;
+
+    while (x > 1) {
+        int p = spf[x];                    // x 的最小质因子
+        int cnt = 0;
+        while (x % p == 0) {               // 把 p 除干净
+            x /= p;
+            cnt++;
+        }
+        res.push_back(make_pair(p, cnt));
+    }
+    return res;
 }
