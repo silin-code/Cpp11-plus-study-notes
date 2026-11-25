@@ -152,3 +152,46 @@ inline long long qpow(long long a, long long b, long long mod)
     }
     return ret;
 }
+
+// ------------------------------------------------------------
+// linearSieve(n)：线性筛，返回 [2, n] 内所有【质数本身】（不是 bool 表）
+// ------------------------------------------------------------
+// 【和 sieve 的结构差异（唯一区别，但必须换掉内层）】
+//   埃氏筛：if (是质数) { for (k = i*i; k <= n; k += i) 划掉 k; }
+//           —— 内层划的是「i 的倍数」
+//   线性筛：if (是质数) primes.push_back(i);
+//           for (p : primes) { 划掉 i*p; if (i%p==0) break; }
+//           —— 内层遍历的是「质数表」，而且【每一轮 i 都要跑】，不在 if 里面
+//
+// 【为什么是 O(n)：每个合数只被最小质因子划一次】
+//   设 x = i*p，若 p 不是 x 的最小质因子（最小的是 q < p），
+//   则由 q | x = i*p 且 q ∤ p 推出 q | i；
+//   于是 i 这一轮内层按升序先遇到 q，i%q==0 直接 break，走不到 p。
+//   => 只有 p 是 x 的最小质因子时才可能划到 x，而最小质因子唯一。
+//
+// 【实测：线性筛并不更快，选哪个看你要什么】
+//   n = 1e5  埃氏 0.24ms / 线性 0.47ms
+//   n = 1e6  埃氏 2.63ms / 线性 4.79ms
+//   n = 1e7  埃氏 25.26ms / 线性 41.19ms
+//   原因：log log n 增长极慢（1e7 时仅 2.78），理论上只差 2.78 倍；
+//         而线性筛每步要乘法 + 取模（除法），埃氏筛只有加法。
+//   => 只要质数表：用 sieve。
+//      要最小质因子表（做质因数分解/约数个数/欧拉函数）：用线性筛改造，
+//      在 isComp[i*p] = true 后面加一行 spf[i*p] = p 即可。
+// ------------------------------------------------------------
+//返回2到n内所有质数
+inline vector<int> linearSieve(int n) {
+    vector<int> primes;
+    vector<bool> isComp(n + 1, false);   // true 为合数，false 为质数
+
+    for (int i = 2; i <= n; i++) {
+        if (!isComp[i]) primes.push_back(i);   // if 只管这一句
+
+        for (int p : primes) {                 // 内层和 if 并列，每一轮 i 都跑
+            if (i * p > n) break;              // 超范围
+            isComp[i * p] = true;              // 划掉 i*p
+            if (i % p == 0) break;             // 保证每个合数只被最小质因子划一次
+        }
+    }
+    return primes;
+}
